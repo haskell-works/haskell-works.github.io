@@ -34,36 +34,57 @@
     <p>In data processing, the volume of data can be so large that the amount of time it takes to process a file matters. In my work, I try to optimise such jobs so that it is more efficient, but surprisingly, it is often not the business logic that is the bottleneck, but the parsing of files itself that consumes large amounts of CPU and memory.</p>
 <h1 id="memory-usage">Memory usage</h1>
 <p>Memory in particular can be a serious problem because we like to store large files in S3 where the pricing model and latency of <code>GET</code> queries favours the storage of large files in the hundreds of MBs each.</p>
-<p>The danger without storing such large files, however, is we can run out of memory just trying to parse them.</p>
-<p>To illustrate the problem, here is a sample program that parses a 25MB JSON file.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb1-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/blog-examples.git</a>
-<a class="sourceLine" id="cb1-2" data-line-number="2">$ <span class="bu">cd</span> blog-examples/simple-json</a>
-<a class="sourceLine" id="cb1-3" data-line-number="3">$ <span class="ex">stack</span> build</a>
-<a class="sourceLine" id="cb1-4" data-line-number="4">$ <span class="ex">curl</span> https://data.medicare.gov/api/views/ijh5-nb2v/rows.json\?accessType\=DOWNLOAD <span class="op">&gt;</span> hospitalisation.json</a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">$ <span class="fu">ls</span> -lh hospitalisation.json</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="ex">-rw-r--r--</span>  1 jky  staff    25M 24 Jul 22:00 hospitalisation.json</a>
-<a class="sourceLine" id="cb1-7" data-line-number="7">$ <span class="ex">stack</span> exec simple-json hospitalisation.json</a>
-<a class="sourceLine" id="cb1-8" data-line-number="8"><span class="ex">jky</span>              32237 394.0  1.9 1078037040 323084 s001  S+   10:05pm   0:03.79 /Users/jky/wrk/haskell-works/blog-examples/simple-json/.stack-work/install/x86_64-osx/lts-12.2/8.4.3/bin/simple-json hospitalisation.json</a>
-<a class="sourceLine" id="cb1-9" data-line-number="9"><span class="ex">Done</span></a></code></pre></div>
-<p>The program self-reports that after parsing the file, it is using 394MB of memory!</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb2-1" data-line-number="1">$ <span class="bu">time</span> gzip hospitalisation.json</a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="fu">gzip</span> hospitalisation.json  0.55s user 0.02s system 96% cpu 0.595 total</a></code></pre></div>
+<p>The danger with storing such large files, however, is we can run out of memory just trying to parse them.</p>
+<p>To illustrate the problem, here is a sample program that parses a JSON file and reports how much memory it uses before exiting.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="dt">Control.Monad</span></a>
+<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="kw">import</span> <span class="dt">Data.Aeson</span></a>
+<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">import</span> <span class="dt">GHC.Stats</span></a>
+<a class="sourceLine" id="cb1-4" data-line-number="4"><span class="kw">import</span> <span class="dt">System.Posix.Process</span></a>
+<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="kw">import</span> <span class="dt">System.Process</span></a>
+<a class="sourceLine" id="cb1-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb1-7" data-line-number="7"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">BS</span></a>
+<a class="sourceLine" id="cb1-8" data-line-number="8"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">System.Environment</span>   <span class="kw">as</span> <span class="dt">IO</span></a>
+<a class="sourceLine" id="cb1-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb1-10" data-line-number="10"><span class="ot">main ::</span> <span class="dt">IO</span> ()</a>
+<a class="sourceLine" id="cb1-11" data-line-number="11">main <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb1-12" data-line-number="12">  pid <span class="ot">&lt;-</span> getProcessID</a>
+<a class="sourceLine" id="cb1-13" data-line-number="13">  (filename<span class="fu">:</span>_) <span class="ot">&lt;-</span> <span class="dt">IO</span><span class="fu">.</span>getArgs</a>
+<a class="sourceLine" id="cb1-14" data-line-number="14">  bs <span class="ot">&lt;-</span> BS.readFile filename</a>
+<a class="sourceLine" id="cb1-15" data-line-number="15">  <span class="kw">let</span> <span class="fu">!</span>maybeJson <span class="fu">=</span> decode<span class="ot"> bs ::</span> <span class="dt">Maybe</span> <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb1-16" data-line-number="16"></a>
+<a class="sourceLine" id="cb1-17" data-line-number="17">  system <span class="fu">$</span> <span class="st">&quot;ps aux | grep &quot;</span> <span class="fu">&lt;&gt;</span> show pid <span class="fu">&lt;&gt;</span> <span class="st">&quot; | grep -v grep&quot;</span></a>
+<a class="sourceLine" id="cb1-18" data-line-number="18"></a>
+<a class="sourceLine" id="cb1-19" data-line-number="19">  forM_ maybeJson <span class="fu">$</span> \_ <span class="ot">-&gt;</span></a>
+<a class="sourceLine" id="cb1-20" data-line-number="20">    putStrLn <span class="st">&quot;Done&quot;</span></a></code></pre></div>
+<p>This program is used to parse a <code>25MB</code> file as follows:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb2-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/blog-examples.git</a>
+<a class="sourceLine" id="cb2-2" data-line-number="2">$ <span class="bu">cd</span> blog-examples/simple-json</a>
+<a class="sourceLine" id="cb2-3" data-line-number="3">$ <span class="ex">stack</span> build</a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">$ <span class="ex">curl</span> https://data.medicare.gov/api/views/ijh5-nb2v/rows.json\?accessType\=DOWNLOAD <span class="op">&gt;</span> hospitalisation.json</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5">$ <span class="fu">ls</span> -lh hospitalisation.json</a>
+<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ex">-rw-r--r--</span>  1 jky  staff    25M 24 Jul 22:00 hospitalisation.json</a>
+<a class="sourceLine" id="cb2-7" data-line-number="7">$ <span class="ex">stack</span> exec simple-json hospitalisation.json</a>
+<a class="sourceLine" id="cb2-8" data-line-number="8"><span class="ex">jky</span>              32237 394.0  1.9 1078037040 323084 s001  S+   10:05pm   0:03.79 /Users/jky/wrk/haskell-works/blog-examples/simple-json/.stack-work/install/x86_64-osx/lts-12.2/8.4.3/bin/simple-json hospitalisation.json</a>
+<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="ex">Done</span></a></code></pre></div>
+<p>The program self-reports that after parsing the file, it is using <code>394MB</code> of memory!</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb3-1" data-line-number="1">$ <span class="bu">time</span> gzip hospitalisation.json</a>
+<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">gzip</span> hospitalisation.json  0.55s user 0.02s system 96% cpu 0.595 total</a></code></pre></div>
 <p>The discrepancy is even larger if we consider that large files stored in S3 are often compressed:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb3-1" data-line-number="1">$ <span class="fu">gzip</span> hospitalisation.json</a>
-<a class="sourceLine" id="cb3-2" data-line-number="2">$ <span class="fu">ls</span> -lh hospitalisation.json.gz</a>
-<a class="sourceLine" id="cb3-3" data-line-number="3"><span class="ex">-rw-r--r--</span>  1 jky  staff   4.5M 24 Jul 22:00 hospitalisation.json.gz</a></code></pre></div>
-<p>So now we’re look at unzipping and then parsing at a memory cost of 394M, or 87x the size of the compressed 4.5MB file or 16x the the size of the original 25MB file.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb4-1" data-line-number="1">$ <span class="fu">gzip</span> hospitalisation.json</a>
+<a class="sourceLine" id="cb4-2" data-line-number="2">$ <span class="fu">ls</span> -lh hospitalisation.json.gz</a>
+<a class="sourceLine" id="cb4-3" data-line-number="3"><span class="ex">-rw-r--r--</span>  1 jky  staff   4.5M 24 Jul 22:00 hospitalisation.json.gz</a></code></pre></div>
+<p>So now we’re look at unzipping and then parsing at a memory cost of <code>394M</code>, or <code>87x</code> the size of the compressed <code>4.5MB</code> file or <code>16x</code> the the size of the original <code>25MB</code> file.</p>
 <h2 id="why-does-this-happen">Why does this happen</h2>
 <p>JSON is hardly a compact serialisation format to start with, so the amount of memory required for parsing is quite astonishing.</p>
 <p>Let’s take a look at the data type that describes that data that composes a typical JSON document:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="kw">data</span> <span class="dt">Json</span></a>
-<a class="sourceLine" id="cb4-2" data-line-number="2">  <span class="fu">=</span> <span class="dt">JsonString</span> <span class="dt">String</span></a>
-<a class="sourceLine" id="cb4-3" data-line-number="3">  <span class="fu">|</span> <span class="dt">JsonNumber</span> <span class="dt">Double</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4">  <span class="fu">|</span> <span class="dt">JsonObject</span> [(<span class="dt">String</span>, <span class="dt">Json</span>)]</a>
-<a class="sourceLine" id="cb4-5" data-line-number="5">  <span class="fu">|</span> <span class="dt">JsonArray</span> [<span class="dt">Json</span>]</a>
-<a class="sourceLine" id="cb4-6" data-line-number="6">  <span class="fu">|</span> <span class="dt">JsonBool</span> <span class="dt">Bool</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7">  <span class="fu">|</span> <span class="dt">JsonNull</span></a>
-<a class="sourceLine" id="cb4-8" data-line-number="8">  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">data</span> <span class="dt">Json</span></a>
+<a class="sourceLine" id="cb5-2" data-line-number="2">  <span class="fu">=</span> <span class="dt">JsonString</span> <span class="dt">String</span></a>
+<a class="sourceLine" id="cb5-3" data-line-number="3">  <span class="fu">|</span> <span class="dt">JsonNumber</span> <span class="dt">Double</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4">  <span class="fu">|</span> <span class="dt">JsonObject</span> [(<span class="dt">String</span>, <span class="dt">Json</span>)]</a>
+<a class="sourceLine" id="cb5-5" data-line-number="5">  <span class="fu">|</span> <span class="dt">JsonArray</span> [<span class="dt">Json</span>]</a>
+<a class="sourceLine" id="cb5-6" data-line-number="6">  <span class="fu">|</span> <span class="dt">JsonBool</span> <span class="dt">Bool</span></a>
+<a class="sourceLine" id="cb5-7" data-line-number="7">  <span class="fu">|</span> <span class="dt">JsonNull</span></a>
+<a class="sourceLine" id="cb5-8" data-line-number="8">  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</a></code></pre></div>
 <p>This can be explained by the cost of pointers. A large document, will have lots of pointers connecting all the JSON nodes and they cost 64-bits (the size of a pointer). The image below constrasts the amount of memory allocated to actual data (Green) versus the amount of memory allocated to pointers (purple) and other housekeeping information maintained by the runtime (blue).</p>
 <figure>
 <img src="../images/json-object-on-the-heap.png" alt="JSON Object on the Heap" /><figcaption>JSON Object on the Heap</figcaption>
@@ -79,25 +100,25 @@
 <p>Hopefully, these examples have convinced you of the absurdity of using in-memory documents to represent large datasets.</p>
 <h1 id="cpu-usage-and-io-boundedness">CPU usage and IO boundedness</h1>
 <p>Another point of consideration when parsing large datasets is how long it takes to parse the file. Often we would just dismiss the slowness to the parsing being IO bound, but is it really?</p>
-<p>Here we measure how long it takes to parse a 25MB JSON file (on my Macbook Pro):</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb5-1" data-line-number="1">$ <span class="bu">time</span> stack exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="ex">stack</span> exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null  2.96s user 1.21s system 328% cpu 1.270 total</a></code></pre></div>
-<p>At 8.44 MB/s (25 MB / 2.96 s), is that fast or close to IO bound?</p>
+<p>Here we measure how long it takes to parse a <code>25MB</code> JSON file (on my Macbook Pro):</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb6-1" data-line-number="1">$ <span class="bu">time</span> stack exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="ex">stack</span> exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null  2.96s user 1.21s system 328% cpu 1.270 total</a></code></pre></div>
+<p>At <code>8.44 MB/s</code> (<code>25 MB / 2.96 s</code>), is that fast or close to IO bound?</p>
 <p>Not even close.</p>
 <p>Below, we see that cut can select the first two columns out of a CSV file at a rate of 76MiB/s, almost an order of magnitude faster.</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb6-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">cut</span> -d , -f 1 -f 2 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:01:35 [76.0MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb7-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">cut</span> -d , -f 1 -f 2 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb7-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:01:35 [76.0MiB/s]</a></code></pre></div>
 <p>Are we IO bound yet?</p>
 <p>Other programs are faster. For example:</p>
 <p>Character count:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb7-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -c <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb7-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:24 [ 298MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb8-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -c <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:24 [ 298MiB/s]</a></code></pre></div>
 <p>Line count:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb8-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -l <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:08 [ 819MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -l <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:08 [ 819MiB/s]</a></code></pre></div>
 <p>Or remove <code>wc</code> altogether so we just have <code>cat</code> and <code>pv</code>:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:02 [2.56GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb10-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb10-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:02 [2.56GiB/s]</a></code></pre></div>
 <p>It’s probably safe to say the JSON parsing with a traditional style parser is at least one or two orders of magnitude slower than speeds where it could be considered to be IO bound.</p>
 <h1 id="where-to-from-here">Where to from here</h1>
 <p>In the near future, I’d like to describe on this blog how the <code>haskell-works</code> parsing libraries tries to address these and other problems, and future directions the libraries might take.</p>
