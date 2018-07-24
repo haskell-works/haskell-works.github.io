@@ -65,7 +65,7 @@
 <a class="sourceLine" id="cb4-8" data-line-number="8">  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</a></code></pre></div>
 <p>This can be explained by the cost of pointers. A large document, will have lots of pointers connecting all the JSON nodes and they cost 64-bits (the size of a pointer). The image below constrasts the amount of memory allocated to actual data (Green) versus the amount of memory allocated to pointers (purple) and other housekeeping information maintained by the runtime (blue).</p>
 <figure>
-<img src="../images/json-object-on-the-heap.png" title="JSON Object on the Heap" alt="JSON Object on the Heap" /><figcaption>JSON Object on the Heap</figcaption>
+<img src="../images/json-object-on-the-heap.png" alt="JSON Object on the Heap" /><figcaption>JSON Object on the Heap</figcaption>
 </figure>
 <p>The header exists because the type <code>Json</code> is a tagged type and the runtime needs a place to store additional information (the tag) to know which constructor is relevant for interpreting the payload.</p>
 <ul>
