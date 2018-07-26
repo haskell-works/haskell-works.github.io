@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Haskell Works Blog - Introduction to succinct data structures</title>
+    <title>Haskell Works Blog - Introduction to the succinct semi-index</title>
     <link rel="stylesheet" href="../css/default.css" />
   </head>
   <body>
@@ -22,7 +22,7 @@
     </header>
 
     <main role="main">
-      <h1>Introduction to succinct data structures</h1>
+      <h1>Introduction to the succinct semi-index</h1>
       <article>
   <section class="header">
     Posted on July 26, 2018
@@ -31,7 +31,66 @@
     
   </section>
   <section>
-    <p>blah blah</p>
+    <p>Last week we looked at traditional whole-document parsers struggle to parse big files.</p>
+<p><img style="float: right; height: 300px; width: 300px;" src="../images/golden-toilet.png"> Such parsers both take too much memory to load the entire document into memory and are too slow, being orders of magnitude slower than what IO bandwidth would allow.</p>
+<p>In some ways, the slowness is implied by the large memory usage. Traditional whole-document parsers spend a lot of time allocating memory, assigning pointers, following indirections and touching new memory that isn’t cached in the CPU cache where it can be accessed much more quickly.</p>
+<p>To achieve high performance, the parser needs to do as little possible, but traditional parsers are actually creating a lot of work for the hardware, that is incidental to solving the problem of making the document data accessible and much of it is hidden from us as the developer by language and hardware abstractions.</p>
+<p>We have seen how the over-reliance on objects, and whilst they do the job, are severely expensive, especially when allocated en-mass. For our use-case their cost disproportionately exceeds their utility.</p>
+<h1 id="if-not-objects-then-what">If not objects then what</h1>
+<p>If you what to minimise memory usage, the first thing you should do is avoid duplicating data.</p>
+<p>All the data we want to access is already in the document.</p>
+<p>Copying that data into intermediate objects so that we can work with them is wasteful.</p>
+<p><img style="float: right; height: 300px; width: 300px;" src="../images/bits-in-perspective.jpg"> Instead we want to reuse the data in its original form as much as possible and leave the parsing of small individual elements of the document to the last moment just before we use them and in that way avoid parsing all the parts of the document we don’t need.</p>
+<p>What prevents us from doing that exactly that is that we lack the means to navigate the structure of the document to locate the various pieces of data in the document we are interested in.</p>
+<p>This structure is exactly what our object-based document object model provided, but to avoid paying their dues, we must find another way.</p>
+<p>But if not objects, then what?</p>
+<p>If you want to find something extremely small and light weight, you could do worse than choose the humble bit. It is 64 times smaller than a pointer and many more times smaller than an object.</p>
+<p>So let’s do exactly that.</p>
+<h1 id="the-rank-select-bit-string">The rank-select bit string</h1>
+<p>Before we can pull this off we are going to have to learn us some concepts.</p>
+<p>Imagine a string of bits. Not unlike the following:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">let</span> bs <span class="fu">=</span> <span class="st">&quot;101000000010000000100000010001000000100000&quot;</span></a></code></pre></div>
+<p>In order to query this bit string we will be using two very powerful query operations <strong>rank</strong> and <strong>select</strong>.</p>
+<p>The pseudocode for these to operations are provided below in Haskell which you can drop in to your Haskell repl to observe the behaviour of these two operations:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="kw">import</span> <span class="dt">Data.List</span></a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="ot">popCount1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">popCount1 bs <span class="fu">=</span> length (filter (<span class="fu">==</span> <span class="ch">'1'</span>) bs)</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5"></a>
+<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ot">rank1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-7" data-line-number="7">rank1 bs n <span class="fu">=</span> popCount (take n bs)</a>
+<a class="sourceLine" id="cb2-8" data-line-number="8"></a>
+<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="ot">select1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-10" data-line-number="10">select1 bs n <span class="fu">=</span> length (head (dropWhile ((<span class="fu">&lt;</span> n) <span class="fu">.</span> popCount) (inits bs)))</a></code></pre></div>
+<p>The first function <code>popCount1</code> is the <strong>population</strong> operation (sometimes called the hamming weight). It tells us how many <code>1</code> bits there are in our bit string.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1">λ<span class="fu">&gt;</span> popCount1 bs</a>
+<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="dv">7</span></a></code></pre></div>
+<p>The second function <code>rank1</code> is the <strong>rank</strong> operation which tells us the population count of the prefix of our substring of the given length <code>n</code>.</p>
+<p>Here are some example <strong>rank</strong> queries:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">0</span></a>
+<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="dv">0</span></a>
+<a class="sourceLine" id="cb4-3" data-line-number="3">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-4" data-line-number="4"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-5" data-line-number="5">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-6" data-line-number="6"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-7" data-line-number="7">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-9" data-line-number="9">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">14</span></a>
+<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="dv">3</span></a></code></pre></div>
+<p>The third function <code>select1</code> is the <strong>select</strong> operation which tells us smallest prefix of the given bit string that has the given population <code>n</code>.</p>
+<p>Here are some example <strong>select</strong> queries:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">λ<span class="fu">&gt;</span> select1 bs <span class="dv">0</span></a>
+<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="dv">0</span></a>
+<a class="sourceLine" id="cb5-3" data-line-number="3">λ<span class="fu">&gt;</span> select1 bs <span class="dv">1</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb5-5" data-line-number="5">λ<span class="fu">&gt;</span> select1 bs <span class="dv">2</span></a>
+<a class="sourceLine" id="cb5-6" data-line-number="6"><span class="dv">3</span></a>
+<a class="sourceLine" id="cb5-7" data-line-number="7">λ<span class="fu">&gt;</span> select1 bs <span class="dv">3</span></a>
+<a class="sourceLine" id="cb5-8" data-line-number="8"><span class="dv">11</span></a>
+<a class="sourceLine" id="cb5-9" data-line-number="9">λ<span class="fu">&gt;</span> select1 bs <span class="dv">4</span></a>
+<a class="sourceLine" id="cb5-10" data-line-number="10"><span class="dv">19</span></a></code></pre></div>
+<p>In less precise terms, the <em>rank</em> gives us how many <code>1s</code> up to a given position <code>n</code> in our bit string and and <em>select</em> gives us the position of the <code>n</code>th <code>1</code> in our bit string.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;John&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">30</span><span class="fu">,</span> <span class="dt">&quot;car&quot;</span><span class="fu">:</span> <span class="kw">null</span> <span class="fu">}</span></a></code></pre></div>
   </section>
 </article>
 
