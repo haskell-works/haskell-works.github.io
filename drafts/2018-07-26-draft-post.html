@@ -32,8 +32,8 @@
   </section>
   <section>
     <p><a href="../posts/2018-07-25-problem-of-parsing-large-datasets.html">Last week</a> we looked at traditional whole-document parsers struggle to parse big files.</p>
-<p><img style="float: right; height: 300px; width: 300px;" src="../images/golden-toilet.png"> Such parsers both take use much memory and are too slow, being orders of magnitude slower than what IO bandwidth would allow.</p>
-<p>In some sense, we can understand the slowness as a consequence large memory usage. All that memory access does not come for free time-wise.</p>
+<p><img style="float: right; height: 300px; width: 300px;" src="../images/golden-toilet.png"> Such parsers both use much memory and are too slow, being orders of magnitude slower than what IO bandwidth would allow.</p>
+<p>In some sense, we can understand the slowness as a consequence large memory usage: All that memory access does not come for free time-wise.</p>
 <p>Traditional whole-document parsers spend a lot of time allocating memory, assigning pointers, following indirections and touching new memory that isn’t cached in the CPU cache where it could have been accessed much more quickly.</p>
 <p>To achieve high performance, the parser needs to do as little possible, but traditional parsers are actually creating a lot of work for the hardware, that is incidental to solving the problem of making the document data accessible and much of it is hidden from us, the developer, by language and hardware abstractions, so the overhead is easy to miss.</p>
 <p>We have seen how the over-reliance on objects, and whilst they do the job, are severely expensive, especially when allocated en-mass. For our use-case their cost disproportionately exceeds their utility.</p>
