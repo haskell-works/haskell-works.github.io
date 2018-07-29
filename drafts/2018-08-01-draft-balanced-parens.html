@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Haskell Works Blog - Introduction to the balanced parentheses index</title>
+    <link rel="stylesheet" href="../css/default.css" />
+    <link rel="alternate" type="application/atom+xml" title="Atom - Haskell Works Blog" href="../atom.xml" />
+    <link rel="alternate" type="application/rss+xml" title="RSS - Haskell Works Blog" href="../rss.xml" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <a href="../">Haskell Works Blog</a>
+      </div>
+      <nav>
+        <a href="../">Home</a>
+        <a href="../about.html">About</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../archive.html">Archive</a>
+        <a href="../drafts.html">Drafts</a>
+      </nav>
+    </header>
+
+    <main role="main">
+      <h1>Introduction to the balanced parentheses index</h1>
+      <article>
+  <section class="header">
+    Posted on August  1, 2018
+    
+      by John Ky
+    
+  </section>
+  <section>
+    <h1 id="balanced-parenthesis-index">Balanced Parenthesis Index</h1>
+<p>The rank select bit string will allow us to jump to the relevant n-th node in the document, but it won’t allow us to navigate the document as a tree because it doesn’t capture the parent/sibling relationship of the nodes.</p>
+<p>This will require another kind of index called the balanced parenthesis index, which is capable of faithfully representing the structure of a tree.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;John&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">30</span> <span class="fu">}</span><span class="ot">,</span> <span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Kyle&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">31</span> <span class="fu">}</span><span class="ot">]</span></a></code></pre></div>
+<pre class="text"><code>                             [ ]
+                              |
+               +--------- ----+---------------+
+               |                              |
+              { }                            { }
+               |                              |
+   +--------+--+----+-----+       +-------+---+----+-----+
+   |        |       |     |       |       |        |     |
+&quot;name&quot;   &quot;John&quot;   &quot;age&quot;   30   &quot;name&quot;   &quot;Kyle&quot;   &quot;age&quot;   31</code></pre>
+<pre class="text"><code>                             ( )
+                              |
+               +--------- ----+---------------+
+               |                              |
+              ( )                            ( )
+               |                              |
+   +--------+--+----+-----+       +-------+---+----+-----+
+   |        |       |     |       |       |        |     |
+  ( )      ( )     ( )   ( )     ( )     ( )      ( )   ( )</code></pre>
+<div class="sourceCode" id="cb4"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;John&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">30</span> <span class="fu">}</span><span class="ot">,</span> <span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Kyle&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">31</span> <span class="fu">}</span><span class="ot">]</span></a>
+<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="er">((</span> <span class="er">()</span>      <span class="er">()</span>      <span class="er">()</span>     <span class="er">()</span> <span class="er">)</span>  <span class="er">(</span> <span class="er">()</span>     <span class="er">()</span>       <span class="er">()</span>     <span class="er">()</span> <span class="er">))</span></a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">λ<span class="fu">&gt;</span> <span class="kw">let</span> fc <span class="fu">=</span> firstChild</a>
+<a class="sourceLine" id="cb5-2" data-line-number="2">λ<span class="fu">&gt;</span> <span class="kw">let</span> ns <span class="fu">=</span> nextSibling</a>
+<a class="sourceLine" id="cb5-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">let</span> c <span class="fu">=</span> <span class="dt">Cursor</span> <span class="st">&quot;((()()()())(()()()()))&quot;</span> <span class="dv">1</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return</a>
+<a class="sourceLine" id="cb5-5" data-line-number="5">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-6" data-line-number="6"><span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-7" data-line-number="7">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc</a>
+<a class="sourceLine" id="cb5-8" data-line-number="8">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-9" data-line-number="9"> <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-10" data-line-number="10">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> fc</a>
+<a class="sourceLine" id="cb5-11" data-line-number="11">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-12" data-line-number="12">  <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-13" data-line-number="13">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-14" data-line-number="14">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-15" data-line-number="15">    <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-16" data-line-number="16">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-17" data-line-number="17">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-18" data-line-number="18">      <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-19" data-line-number="19">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-20" data-line-number="20">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-21" data-line-number="21">        <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-22" data-line-number="22">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-23" data-line-number="23">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-24" data-line-number="24">           <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-25" data-line-number="25">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> fc</a>
+<a class="sourceLine" id="cb5-26" data-line-number="26">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-27" data-line-number="27">            <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-28" data-line-number="28">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-29" data-line-number="29">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-30" data-line-number="30">              <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-31" data-line-number="31">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-32" data-line-number="32">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-33" data-line-number="33">                <span class="fu">^</span></a>
+<a class="sourceLine" id="cb5-34" data-line-number="34">λ<span class="fu">&gt;</span> mapM_ printCursor <span class="fu">$</span> (<span class="fu">$</span> c) <span class="fu">$</span> return <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> fc <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns <span class="fu">&gt;=&gt;</span> ns</a>
+<a class="sourceLine" id="cb5-35" data-line-number="35">((()()()())(()()()()))</a>
+<a class="sourceLine" id="cb5-36" data-line-number="36">                  <span class="fu">^</span></a></code></pre></div>
+<h1 id="ingredients-to-making-this-fast">Ingredients to making this fast</h1>
+<ul>
+<li>Fast way to build a Rank Select Bit String Index for a document</li>
+<li>Fast way to build a Balanced Parentheses Index for a document</li>
+<li>Fast rank/select operations</li>
+<li>Fast firstChild/nextSibling operations</li>
+<li>Fast value parsers</li>
+</ul>
+<p>Ideally, we’d like to build a parser made of these components, and be faster than a traditional whole document parser while using less memory.</p>
+  </section>
+</article>
+
+    </main>
+
+    <footer>
+      Site proudly generated by
+      <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+    </footer>
+  </body>
+</html>
