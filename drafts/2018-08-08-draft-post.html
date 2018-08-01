@@ -130,6 +130,7 @@ Kyle,40,Data Scrubber</code></pre>
 0000000000000000000000000100000000000000000001000000000000000000000</code></pre>
 <p>The first rank-select bit-string marks both delimiters and newlines and helps us find the beginning of fields, whilst the other rank-select bit-string marks newlines only and helps us find the beginning of rows.</p>
 <p>Having two rank-select bit-strings affords us operations like row count, and field count (either per document or per row) without having to inspect the original document text at all.</p>
+<p>If you’re interested with playing with the haskell-works library which works on real bit-vectors (rather than emulation on strings), head over to the <a href="http://github.com/haskell-works/hw-rankselect-base">hw-rankselect-base</a> project page.</p>
 <h1 id="other-ingredients-to-a-fast-json-or-csv-parser">Other ingredients to a fast JSON or CSV parser</h1>
 <p>A rank-select bit-string by itself won’t get us a fast JSON or CSV parser.</p>
 <p>We will need high performance <strong>rank</strong> and <strong>select</strong> operations for both short and very long bit-strings to make this practical.</p>
