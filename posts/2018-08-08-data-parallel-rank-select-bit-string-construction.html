@@ -34,7 +34,8 @@
   </section>
   <section>
     <p>So far, I’ve <a href="../posts/2018-08-01-introduction-to-rank-select-bit-string.html">posted</a> about the problems with traditional parser and offered a glimpse of how they might be solved, but succinct data structures are quite alien and it isn’t obvious the pay-off will be worthwhile.</p>
-<p>In this post, I will motivate the use of rank-select bit-strings for CSV by employing <a href="https://en.wikipedia.org/wiki/Data_parallelism">data-level parallelism</a> techniques to reason about the potential the performance benefits of succinct data-structures based parsers over traditional parsers.</p>
+<p>In this post, I demonstrate how use broadword programming techniques to exploit <a href="https://en.wikipedia.org/wiki/Data_parallelism">data-level parallelism</a> in the parsing of a CSV-like format.</p>
+<p>Doing so allows us to parse the text 8-bytes at a time instead of one byte at a time as a traditional parser would.</p>
 <p>For simplicity, I will will be postponing the particular challenges of implementing the particulars of the <a href="https://tools.ietf.org/html/rfc4180">RFC standard for CSV</a> for a later time and instead work with a simplified format.</p>
 <p>The simplified “CSV” grammar will only recognise delimiters and newlines and have no support for escaping.</p>
 <p>The format I describe is effectively the kind of format that the <a href="https://en.wikipedia.org/wiki/Cut_(Unix)"><code>cut</code></a> command line tool can process, so <code>cut</code> will at some point serve as the performance baseline that I’m aiming to improve upon.</p>
