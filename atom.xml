@@ -34,14 +34,14 @@
 <p>Note that <code>␤</code> represenes a newline ASCII character</p>
 <h2 id="broadword-progamming">Broadword progamming</h2>
 <p>Broadword programming, sometimes known as SWAR (SIMD Within A Register) uses large registers (in our case 64-bit integer registers) as small parallel computers that can process several pieces of information at a time.</p>
-<p>We will be using this technique to parse out text 8-bytes at a time.</p>
+<p>We will be using this technique to parse our text 8-bytes at a time.</p>
 <p>Before we start we will need the following operations:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
 <a class="sourceLine" id="cb2-2" data-line-number="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
 <a class="sourceLine" id="cb2-3" data-line-number="3"><span class="ot">(.^.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise XOR of two integers</span></a>
 <a class="sourceLine" id="cb2-4" data-line-number="4"><span class="ot">comp  ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>           <span class="co">-- Compute the bit-wise complement of an integer</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">(.&lt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the left shift of an integer by the given offset in Big-Endian</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">                                    <span class="co">-- Note, this is equivalent to a right shift of an integer in Little-Endian</span></a></code></pre></div>
+<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
+<a class="sourceLine" id="cb2-6" data-line-number="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
 <p>These operators are pretty standard, but pay close attention to the shift operator, which is the standard left shift operator.</p>
 <p>When the bits are laid out in Little-Endian order the left shift will actually shift all the bits <em>to the RIGHT</em>.</p>
 <p>In all of the diagrams, bits and bytes will be laid out in Little-Endian because it is the natural layout for succinct data structures but it can be very confusing so bear with me and keep this in mind.</p>
@@ -82,17 +82,17 @@ l  e  ,  4  0  ,  D  a    t  a     S  c  r  u  b  │ b  e  r │␤ ├──�
             need to be set to 1 ──────────────────┴──────────┘</code></pre>
 <p>Then for each 64-bit value in the vector take the exclusive or <code>(.^.)</code> with the <code>wNewlines</code> mask. The resulting vector of 64-bit vector when cast back to a vector of bytes will then contain a zero value for every character in the original text that was a newline and a non-zero value otherwise.</p>
 <p>This is very close to what we want. All we need to do now is to collapse every non-zero byte into a <code>0</code> bit and every zero byte to a <code>1</code> bit.</p>
-<p>The problem we are trying to solve can be exemplified by the following example where we need a function <code>cmpzero</code> that condenses the bytes in <code>comparison</code> row to the bits in the <code>newlines</code> row:</p>
+<p>The problem we are trying to solve can be exemplified by the following example where we need a function <code>cmpzero</code> that condenses the bytes in the <code>comparison</code> row to the bits in the <code>newlines</code> row:</p>
 <pre class="text"><code>              ┌──┐
 65 64 61 6f 73│00│41 73   comparison ─┐
 0  0  0  0  0 │1 │0  0    newlines &lt;──┘
               └──┘</code></pre>
-<p>The can be done in a series of bit-wise manipulations described below:</p>
+<p>This can be done in a series of bit-wise manipulations described below:</p>
 <pre class="text"><code>T   text ┌─── 10100110 00100110 10000110 11110110 11001110 00000000 10000010 11001110
          │                                                                           
     mask │┌── 00001111 00001111 00001111 00001111 00001111 00001111 00001111 00001111
 A   (.&amp;.)├┴─&gt; 00000110 00000110 00000110 00000110 00001110 00000000 00000010 00001110 ─┐    
-B        │  ┌ 01100000 01100000 01100000 01100000 11100000 00000000 00100000 11100000 &lt;┘ (.&lt;. 4)
+B        │  ┌ 01100000 01100000 01100000 01100000 11100000 00000000 00100000 11100000 &lt;┘ (.&gt;. 4)
          │  └────────────────────────────────────────────────────────────────────────────┐
     mask │┌── 11110000 11110000 11110000 11110000 11110000 11110000 11110000 11110000    │
 C   (.&amp;.)└┴─&gt; 10100000 00100000 10000000 11110000 11000000 00000000 10000000 11000000 ──┐│
@@ -101,7 +101,7 @@ D        ┌─── 11100000 01100000 11100000 11110000 11100000 00000000 1010
          │                                                                             
     mask │┌── 00110000 00110000 00110000 00110000 00110000 00110000 00110000 00110000 mask 
 E   (.&amp;.)├┴─&gt; 00100000 00100000 00100000 00110000 00100000 00000000 00100000 00100000 ─┐    
-F        │  ┌ 10000000 10000000 10000000 11000000 10000000 00000000 10000000 10000000 &lt;┘ (.&lt;. 2)
+F        │  ┌ 10000000 10000000 10000000 11000000 10000000 00000000 10000000 10000000 &lt;┘ (.&gt;. 2)
          │  └────────────────────────────────────────────────────────────────────────────┐
 G   mask │┌── 11000000 11000000 11000000 11000000 11000000 11000000 11000000 11000000    │
     (.&amp;.)└┴─&gt; 11000000 01000000 11000000 11000000 11000000 00000000 10000000 11000000 ──┐│
@@ -110,7 +110,7 @@ H        ┌─── 11000000 11000000 11000000 11000000 11000000 00000000 1000
          │                                                                            
     mask │┌── 01000000 01000000 01000000 01000000 01000000 00000000 01000000 01000000 
 I   (.&amp;.)├┴─&gt; 01000000 01000000 01000000 01000000 01000000 00000000 01000000 01000000 ─┐    
-J        │  ┌ 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;┘ (.&lt;. 1)
+J        │  ┌ 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;┘ (.&gt;. 1)
          │  └────────────────────────────────────────────────────────────────────────────┐
     mask │┌── 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000    │
 K   (.&amp;.)└┴─&gt; 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 ──┐│
