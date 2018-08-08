@@ -104,18 +104,18 @@ E   (.&amp;.)├┴─&gt; 00100000 00100000 00100000 00110000 00100000 00000000
 F        │  ┌ 10000000 10000000 10000000 11000000 10000000 00000000 10000000 10000000 &lt;┘ (.&gt;. 2)
          │  └────────────────────────────────────────────────────────────────────────────┐
 G   mask │┌── 11000000 11000000 11000000 11000000 11000000 11000000 11000000 11000000    │
-    (.&amp;.)└┴─&gt; 11000000 01000000 11000000 11000000 11000000 00000000 10000000 11000000 ──┐│
+H   (.&amp;.)└┴─&gt; 11000000 01000000 11000000 11000000 11000000 00000000 10000000 11000000 ──┐│
                                                                                         ││
-H        ┌─── 11000000 11000000 11000000 11000000 11000000 00000000 10000000 11000000 &lt;─┴┘(.|.)
+I        ┌─── 11000000 11000000 11000000 11000000 11000000 00000000 10000000 11000000 &lt;─┴┘(.|.)
          │                                                                            
     mask │┌── 01000000 01000000 01000000 01000000 01000000 00000000 01000000 01000000 
-I   (.&amp;.)├┴─&gt; 01000000 01000000 01000000 01000000 01000000 00000000 01000000 01000000 ─┐    
-J        │  ┌ 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;┘ (.&gt;. 1)
+J   (.&amp;.)├┴─&gt; 01000000 01000000 01000000 01000000 01000000 00000000 01000000 01000000 ─┐    
+K        │  ┌ 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;┘ (.&gt;. 1)
          │  └────────────────────────────────────────────────────────────────────────────┐
     mask │┌── 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000    │
-K   (.&amp;.)└┴─&gt; 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 ──┐│
+L   (.&amp;.)└┴─&gt; 10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 ──┐│
                                                                                         ││
-L             10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;─┴┘(.|.)
+M             10000000 10000000 10000000 10000000 10000000 00000000 10000000 10000000 &lt;─┴┘(.|.)
               │        │        │        └───┐┌───┘        │        │        │
               │        │        └───────────┐││┌───────────┘        │        │
               │        └───────────────────┐││││┌───────────────────┘        │
@@ -134,38 +134,96 @@ L             10000000 10000000 10000000 10000000 10000000 00000000 10000000 100
 <ul>
 <li>At <code>E</code> we mask out first quarter of every byte in our word <code>D</code>.</li>
 <li>At <code>F</code> we shift the second quarter of every byte into the first quarter of every byte in our word.</li>
-<li>At <code>G</code> we mask out the second quarter of every byte in our word <code>D</code>.</li>
-<li>At <code>H</code> we compute <code>E .|. G</code></li>
+<li>At <code>H</code> we mask out the second quarter of every byte in our word <code>D</code>.</li>
+<li>At <code>I</code> we compute <code>F .|. H</code></li>
 </ul>
 <p>Finally we do this one more time to compress the first quarter of every byte in our word to the first bit of every byte in our word.</p>
 <ul>
-<li>At <code>I</code> we mask out first bit of every byte in our word <code>H</code>.</li>
-<li>At <code>J</code> we shift the second bit of every byte into the first bit of every byte in our word.</li>
-<li>At <code>K</code> we mask out the second bit of every byte in our word <code>H</code>.</li>
-<li>At <code>L</code> we compute <code>I .|. K</code></li>
+<li>At <code>J</code> we mask out first bit of every byte in our word <code>H</code>.</li>
+<li>At <code>K</code> we shift the second bit of every byte into the first bit of every byte in our word.</li>
+<li>At <code>L</code> we mask out the second bit of every byte in our word <code>H</code>.</li>
+<li>At <code>M</code> we compute <code>J .|. L</code></li>
 </ul>
 <p>Now we are two steps away from the 8-bits of rank-select bit-string we need for our 8 input characters.</p>
 <p>We need some way to extract the first bit of every byte in our word, an operation I will call <code>pext</code> or parallel extract, and then take the complement of the result to get the rank-select bit-string we sought.</p>
 <p>The other rank-select bit-string which marks delimiters and newlines can be derived by applying the same algorithm for the delimiters and the newlines separately then taking the bitwise OR <code>(.|.)</code> of the two resulting bit-strings.</p>
-<h2 id="source-code">Source code</h2>
-<p>You can play with the source code here:</p>
-<p>https://github.com/haskell-works/hw-simd/blob/master/src/HaskellWorks/Data/Simd/Internal/Bits.hs#L9</p>
+<p>The resulting code is show below.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
 <a class="sourceLine" id="cb8-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">                    w4s <span class="fu">=</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0x0f0f0f0f0f0f0f0f</span>) <span class="fu">.|.</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0xf0f0f0f0f0f0f0f0</span> <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">                    w2s <span class="fu">=</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x0707070707070707</span>) <span class="fu">.|.</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x7070707070707070</span> <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">                    w1s <span class="fu">=</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x0303030303030303</span>) <span class="fu">.|.</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x3030303030303030</span> <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
 <a class="sourceLine" id="cb8-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
 <a class="sourceLine" id="cb8-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
-<p>The astute reader will notice that I have not used the AND operation <code>(.&amp;.)</code> in my implementation, as per the algorithm described in the previous section, but it still works.</p>
-<p>Why?</p>
-<p>It is because if I fail to mask out the bits, at worst I will “dirty” the bits I will never extract into my rank-select bit-string so the outcome is not affected.</p>
-<p>This saves me from having to do 6 AND <code>(.&amp;.)</code> operations.</p>
+<p>All up we’ve used the following operations:</p>
+<ul>
+<li><code>(.&amp;.)</code> x 6</li>
+<li><code>(.|.)</code> x 3</li>
+<li><code>(.&gt;.)</code> x 3</li>
+<li><code>pext</code> x 1</li>
+<li><code>load</code> x 1</li>
+<li><code>store</code> x 1</li>
+</ul>
+<p>Which adds up to <code>13</code> very fast register only instructions plus <code>2</code> implied memory instructions.</p>
+<h1 id="optimising-our-bit-string-construction-code">Optimising our bit-string construction code</h1>
+<p>If you look at the <code>L</code> row in the diagram you will notice that near the end of the computation we only use the least significant bit from each of the 8 bytes in our word and don’t actually care what the values of the other bits are.</p>
+<p>We can exploit this fact to remove some of the operations from our computation by marking those bits as don’t care or <code>x</code> and then figuring out which operations we can omit.</p>
+<pre class="text"><code>T   text ┌─── 10100110 00100110 10000110 11110110 11001110 00000000 10000010 11001110
+         │                                                                           
+A   noop ├──&gt; xxxx0110 xxxx0110 xxxx0110 xxxx0110 xxxx1110 xxxx0000 xxxx0010 xxxx1110 ─┐    
+B        │  ┌ 0110xxxx 0110xxxx 0110xxxx 0110xxxx 1110xxxx 0000xxxx 0010xxxx 1110xxxx &lt;┘ (.&gt;. 4)
+         │  └────────────────────────────────────────────────────────────────────────────┐
+C   noop └──&gt; 1010xxxx 0010xxxx 1000xxxx 1111xxxx 1100xxxx 0000xxxx 1000xxxx 1100xxxx ──┐│
+                                                                                        ││
+D        ┌─── 1110xxxx 0110xxxx 1110xxxx 1111xxxx 1110xxxx 0000xxxx 1010xxxx 1110xxxx &lt;─┴┘(.|.)
+         │                                                                             
+E   noop ├──&gt; xx10xxxx xx10xxxx xx10xxxx xx11xxxx xx10xxxx xx00xxxx xx10xxxx xx10xxxx ─┐    
+F        │  ┌ 10xxxxxx 10xxxxxx 10xxxxxx 11xxxxxx 10xxxxxx 00xxxxxx 10xxxxxx 10xxxxxx &lt;┘ (.&gt;. 2)
+         │  └────────────────────────────────────────────────────────────────────────────┐
+G   noop └──&gt; 11xxxxxx 01xxxxxx 11xxxxxx 11xxxxxx 11xxxxxx 00xxxxxx 10xxxxxx 11xxxxxx ──┐│
+                                                                                        ││
+I        ┌─── 11xxxxxx 11xxxxxx 11xxxxxx 11xxxxxx 11xxxxxx 00xxxxxx 10xxxxxx 11xxxxxx &lt;─┴┘(.|.)
+         │                                                                            
+J   noop ├──&gt; x1xxxxxx x1xxxxxx x1xxxxxx x1xxxxxx x1xxxxxx x0xxxxxx x1xxxxxx 01xxxxxx ─┐    
+K        │  ┌ 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx x0xxxxxx 1xxxxxxx 1xxxxxxx &lt;┘ (.&gt;. 1)
+         │  └────────────────────────────────────────────────────────────────────────────┐
+L   noop └──&gt; 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xxxxxxx ──┐│
+                                                                                        ││
+M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xxxxxxx &lt;─┴┘(.|.)
+              │        │        │        └───┐┌───┘        │        │        │
+              │        │        └───────────┐││┌───────────┘        │        │
+              │        └───────────────────┐││││┌───────────────────┘        │
+              └───────────────────────────┐││││││┌───────────────────────────┘
+                                          11111011─┐pext
+                                          00000100&lt;┘comp</code></pre>
+<p>As a result of tracing the don’t care or <code>x</code> bits backwards through the computation, I was able to remove six masks and six AND <code>(.&amp;.)</code> operations.</p>
+<p>I left the rows <code>A</code>, <code>C</code>, <code>E</code>, <code>G</code>, <code>J</code>, and <code>L</code> in as non-operations (<code>noop</code>) because I wanted to annotate the additional bits I don’t care beyond those I already don’t care about in the original value.</p>
+<p>The resulting code is much simpler and faster:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb10-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb10-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb10-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb10-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb10-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb10-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<p>The optimisations meas we now use only these operations:</p>
+<ul>
+<li><code>(.|.)</code> x 3</li>
+<li><code>(.&gt;.)</code> x 3</li>
+<li><code>pext</code> x 1</li>
+<li><code>load</code> x 1</li>
+<li><code>store</code> x 1</li>
+</ul>
+<p>This adds up to <code>7</code> very fast register only instructions plus <code>2</code> implied memory instructions.</p>
+<p>Which is very close to <code>1</code> instruction per byte.</p>
 <h2 id="unanswered-questions">Unanswered questions</h2>
-<p>All up this seems like a lot of work, but what’s nice about it is that we are parsing 8-bytes at a time and we’ve managed to avoid any branches or memory allocations within each iteration that could slow the iteration down.</p>
+<p>What’s nice about it is that we are parsing 8-bytes at a time using fewer instructions and we’ve managed to avoid any branches or memory allocations within each iteration that could slow the iteration down.</p>
 <p>Nevertheless, some benchmarks will be necessary to compare this approach to one that parses a byte at a time.</p>
-<p>You may have noticed that I have used the <code>pext</code> operation without describing how it works nor explained why that operation should be fast.</p>
-<p>I will follow up in a future post to explain the <code>pext</code> operation in detail and offer some benchmarks to show the degree of speed up we might expect from exploiting data parallelism in our parsers.</p>]]></summary>
+<p>You may have noticed that I have used the <code>pext</code> operation without properly describing how it works nor explained why that operation should be fast.</p>
+<p>I will follow up in a future post to explain the <code>pext</code> operation in detail and offer some benchmarks to show the degree of speed up we might expect from exploiting data parallelism in our parsers.</p>
+<h2 id="source-code">Source code</h2>
+<p>You can play with the source code here:</p>
+<p>https://github.com/haskell-works/hw-simd/blob/master/src/HaskellWorks/Data/Simd/Internal/Bits.hs#L9</p>]]></summary>
 </entry>
 <entry>
     <title>Introduction to the rank-select bit-string</title>
