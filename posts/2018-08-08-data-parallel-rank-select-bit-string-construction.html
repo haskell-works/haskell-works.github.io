@@ -51,6 +51,7 @@
 <p>Note that <code>␤</code> represenes a newline ASCII character</p>
 <h2 id="broadword-progamming">Broadword progamming</h2>
 <p>Broadword programming, sometimes known as SWAR (SIMD Within A Register) uses large registers (in our case 64-bit integer registers) as small parallel computers that can process several pieces of information at a time.</p>
+<p>We will be using this technique to parse out text 8-bytes at a time.</p>
 <p>Before we start we will need the following operations:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
 <a class="sourceLine" id="cb2-2" data-line-number="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
