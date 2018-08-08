@@ -232,8 +232,7 @@ M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xx
 <li><code>load</code> x 1</li>
 <li><code>store</code> x 1</li>
 </ul>
-<p>This adds up to <code>7</code> very fast register only instructions plus <code>2</code> implied memory instructions.</p>
-<p>Which is very close to <code>1</code> instruction per byte.</p>
+<p>This adds up to <code>7</code> very fast register only instructions plus <code>2</code> implied memory instructions, which is very close to <code>1</code> instruction per byte.</p>
 <h2 id="unanswered-questions">Unanswered questions</h2>
 <p>What’s nice about it is that we are parsing 8-bytes at a time using fewer instructions and we’ve managed to avoid any branches or memory allocations within each iteration that could slow the iteration down.</p>
 <p>Nevertheless, some benchmarks will be necessary to compare this approach to one that parses a byte at a time.</p>
