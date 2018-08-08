@@ -165,10 +165,24 @@ L             10000000 10000000 10000000 10000000 10000000 00000000 10000000 100
 <p>Now we are two steps away from the 8-bits of rank-select bit-string we need for our 8 input characters.</p>
 <p>We need some way to extract the first bit of every byte in our word, an operation I will call <code>pext</code> or parallel extract, and then take the complement of the result to get the rank-select bit-string we sought.</p>
 <p>The other rank-select bit-string which marks delimiters and newlines can be derived by applying the same algorithm for the delimiters and the newlines separately then taking the bitwise OR <code>(.|.)</code> of the two resulting bit-strings.</p>
+<h2 id="source-code">Source code</h2>
+<p>You can play with the source code here:</p>
+<p>https://github.com/haskell-works/hw-simd/blob/master/src/HaskellWorks/Data/Simd/Internal/Bits.hs#L9</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb8-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb8-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<p>The astute reader will notice that I have not used the AND operation <code>(.&amp;.)</code> in my implementation, as per the algorithm described in the previous section, but it still works.</p>
+<p>Why?</p>
+<p>It is because if I fail to mask out the bits, at worst I will “dirty” the bits I will never extract into my rank-select bit-string so the outcome is not affected.</p>
+<p>This saves me from having to do 6 AND <code>(.&amp;.)</code> operations.</p>
 <h2 id="unanswered-questions">Unanswered questions</h2>
 <p>All up this seems like a lot of work, but what’s nice about it is that we are parsing 8-bytes at a time and we’ve managed to avoid any branches or memory allocations within each iteration that could slow the iteration down.</p>
 <p>Nevertheless, some benchmarks will be necessary to compare this approach to one that parses a byte at a time.</p>
-<p>The astute reader will also notice that I have used the <code>pext</code> operation without describing how it works nor explained why that operation should be fast.</p>
+<p>You may have noticed that I have used the <code>pext</code> operation without describing how it works nor explained why that operation should be fast.</p>
 <p>I will follow up in a future post to explain the <code>pext</code> operation in detail and offer some benchmarks to show the degree of speed up we might expect from exploiting data parallelism in our parsers.</p>
   </section>
 </article>
