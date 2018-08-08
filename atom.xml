@@ -166,7 +166,7 @@ M             10000000 10000000 10000000 10000000 10000000 00000000 10000000 100
 </ul>
 <p>Which adds up to <code>13</code> very fast register only instructions plus <code>2</code> implied memory instructions.</p>
 <h1 id="optimising-our-bit-string-construction-code">Optimising our bit-string construction code</h1>
-<p>If you look at the <code>L</code> row in the diagram you will notice that near the end of the computation we only use the least significant bit from each of the 8 bytes in our word and don’t actually care what the values of the other bits are.</p>
+<p>If you look at the <code>M</code> row in the diagram you will notice that near the end of the computation we only use the least significant bit from each of the 8 bytes in our word and don’t actually care what the values of the other bits are.</p>
 <p>We can exploit this fact to remove some of the operations from our computation by marking those bits as don’t care or <code>x</code> and then figuring out which operations we can omit.</p>
 <pre class="text"><code>T   text ┌─── 10100110 00100110 10000110 11110110 11001110 00000000 10000010 11001110
          │                                                                           
