@@ -39,7 +39,7 @@
 <a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
 <a class="sourceLine" id="cb2-6" data-line-number="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
 <p>These operators are pretty standard, but pay close attention to the shift operator, which is the standard left shift operator.</p>
-<p>When the bits are laid out in Little-Endian order the left shift will actually shift all the bits <em>to the RIGHT</em>.</p>
+<p>When the bits are laid out in Little-Endian order the right shift operator will actually shift all the bits <em>to the LEFT</em>.</p>
 <p>In all of the diagrams, bits and bytes will be laid out in Little-Endian because it is the natural layout for succinct data structures but it can be very confusing so bear with me and keep this in mind.</p>
 <p>Our first task is to build the following rank-select bit-string from our text.</p>
 <pre class="text"><code>&quot;name&quot;,&quot;age&quot;,&quot;profession&quot;␤John,30,Code Monkey␤Kyle,40,Data Scrubber
