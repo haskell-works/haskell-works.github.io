@@ -221,8 +221,7 @@ M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xx
 <p>You may have noticed that I have used the <code>pext</code> operation without properly describing how it works nor explained why that operation should be fast.</p>
 <p>I will follow up in a future post to explain the <code>pext</code> operation in detail and offer some benchmarks to show the degree of speed up we might expect from exploiting data parallelism in our parsers.</p>
 <h2 id="source-code">Source code</h2>
-<p>You can play with the source code here:</p>
-<p>https://github.com/haskell-works/hw-simd/blob/master/src/HaskellWorks/Data/Simd/Internal/Bits.hs#L9</p>]]></summary>
+<p>You can play with the source code <a href="https://github.com/haskell-works/hw-simd/blob/master/src/HaskellWorks/Data/Simd/Internal/Bits.hs#L9">here</a>.</p>]]></summary>
 </entry>
 <entry>
     <title>Introduction to the rank-select bit-string</title>
