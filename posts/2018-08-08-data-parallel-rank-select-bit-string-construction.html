@@ -41,7 +41,7 @@
 <p>The format I describe is effectively the kind of format that the <a href="https://en.wikipedia.org/wiki/Cut_(Unix)"><code>cut</code></a> command line tool can process, so <code>cut</code> will at some point serve as the performance baseline that I’m aiming to improve upon.</p>
 <h2 id="data-parallelism">Data Parallelism</h2>
 <p>Data parallelism describes a computation that can be decomposed into smaller computations that can be run in parallel.</p>
-<p>We usually think of parsing is an inheritantly serial process due to the fact the parser must consume the input text one character at a time.</p>
+<p>We usually think of parsing is an inherently serial process due to the fact the parser must consume the input text one character at a time.</p>
 <p>But because I’ve chosen a simplified format where the identification of delimiters and newlines are independent of what characters came before and what came after, there ought to be a way to parse the text more than one character at a time for the purposes of building a rank-select bit-string.</p>
 <p>Our parser would need to generate a <code>1</code> bit for every newline in one of the rank-select bit-strings and a <code>1</code> bit for every newline and delimiter in the other.</p>
 <p>Let’s use the example from the previous post to demonstrate how this can be done:</p>
