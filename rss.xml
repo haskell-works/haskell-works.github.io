@@ -7,8 +7,136 @@
         <description><![CDATA[]]></description>
         <atom:link href="https://haskell-works.github.io/rss.xml" rel="self"
                    type="application/rss+xml" />
-        <lastBuildDate>Wed, 08 Aug 2018 00:00:00 UT</lastBuildDate>
+        <lastBuildDate>Wed, 15 Aug 2018 00:00:00 UT</lastBuildDate>
         <item>
+    <title>RFC compliant data-parallel CSV parsing</title>
+    <link>https://haskell-works.github.io/posts/2018-08-15-data-parallel-rfc-compliant-csv-parsing.html</link>
+    <description><![CDATA[<p>In last week’s post I described how to exploit data-parallelism to build a rank-select bit-string for a <code>cut</code> compatible delimeter-separated-values format, parsing 8-bytes at-a-time.</p>
+<p>In this post we will look at how to do the same for the CSV format described in <a href="https://tools.ietf.org/html/rfc4180">RFC4180</a>, where complicating factors such as quotes, escaping, and quoted control characters cannot be ignored.</p>
+<h2 id="the-rfc-format">The RFC format</h2>
+<p>The data-parallel parser will need to deal with the following cases where carriage-return characters are represented by <code>␍</code> and line-feed characters are represented by ␊:</p>
+<p>When no quotations are used:</p>
+<pre class="text"><code>aaa,bbb,ccc␍␊
+zzz,yyy,xxx</code></pre>
+<p>When quotations are used only around the entire fields containing no newline characters:</p>
+<pre class="text"><code>&quot;aaa&quot;,&quot;bbb&quot;,&quot;ccc&quot;␍␊zzz,yyy,xxx</code></pre>
+<p>When quotations are used only around the entire fields which may contain newline or delimiter characters:</p>
+<pre class="text"><code>&quot;aaa&quot;,&quot;b␍␊
+b,b&quot;,&quot;ccc&quot;␍␊
+zzz,yyy,xxx</code></pre>
+<p>When quotations are used within quoted fields represented by two consecutive double-quotes:</p>
+<pre class="text"><code>&quot;aaa&quot;,&quot;b&quot;&quot;bb&quot;,&quot;ccc&quot;</code></pre>
+<h2 id="the-parser-specification">The Parser Specification</h2>
+<p>Because we are using rank-select bit-strings to index into the original text of the document and to minimise work, the parser is not expected to do additional processing to remove surrounding double quotes, escape quotes nor remove control characters.</p>
+<p>These are instead left to a higher level parser built on top of our parser.</p>
+<p>This means any strings the parser will yield will be a strict substring of the original document.</p>
+<p>The parser will parse the earlier examples to produce results as described below.</p>
+<p>When no quotations are used the substring representing the field text is returned in the result.</p>
+<p>The line-feed byte will act as our newline character. Control chracters other than the row-delimiting line-feed byte are also included in the result with their closest field as is:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">[ [<span class="st">&quot;aaa&quot;</span>, <span class="st">&quot;bbb&quot;</span>, <span class="st">&quot;ccc␍&quot;</span>]</a>
+<a class="sourceLine" id="cb5-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb5-3" data-line-number="3">]</a></code></pre></div>
+<p>When quotations are used only around the entire fields containing no newline characters, the field is returned exactly as they appear in the original document including the surrounding double-quotes:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;bbb\&quot;&quot;</span>,<span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb6-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb6-3" data-line-number="3">]</a></code></pre></div>
+<p>When quotations are used only around the entire fields containing line-feed characters or delimiters, such characters will be returned as part of their field in the result:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b␍␊b,b\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb7-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb7-3" data-line-number="3">]</a></code></pre></div>
+<p>When quotations are used within quoted fields represented by two consecutive double-quotes, the consecutive double-quotes will be returned in the results as is:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b\&quot;\&quot;bb\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;&quot;</span>]</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">]</a></code></pre></div>
+<p>Returning substrings of the raw text as is in this way is good for performance because it means that in situtations where user-code only wishes to access some fields of each row in the document, they do not need to incur the costs of properly parsing the fields they don’t need.</p>
+<p>This is also beneficial for cases where the user wishes to byte-copy fields from the input document into an output document, for example running a program to select desired fields from a CSV document into a new CSV document.</p>
+<h2 id="deriving-the-strategy">Deriving the strategy</h2>
+<p>In order to demonstrate the strategy, I will combine all the possible cases into a single document:</p>
+<pre class="text"><code>aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;</code></pre>
+<p>We will build the rank-select bit-strings for newlines and delimiters exactly as we did for the non-conformant parser in the last post:</p>
+<pre class="text"><code>text:     aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
+markers:  00010001000010000000100010001001000
+newlines: 00000000000010000000000010000000000</code></pre>
+<p>Unfortunately, these rank-select bit-strings, are incorrect because they do not properly handle the case where line-feed or delimiter characters are embedded in a quoted field.</p>
+<p>I’ve marked the incorrectly set bits with an asterisk <code>*</code>:</p>
+<pre class="text"><code>text:     aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
+markers:  000100010000000000001000*000100*000
+newlines: 000000000000000000000000*0000000000</code></pre>
+<p>We will need to somehow clear the <code>*</code> bits in our rank-select bit-strings.</p>
+<p>Since we desire to use a data-parallel approach to parsing CSV, we can start by building a rank-select bit-string for the double-quotes in our CSV document, just as we did for delimeters a new newlines.</p>
+<pre class="text"><code>text:     aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
+markers:  000100010000000000001000*000100*000
+newlines: 000000000000000000000000*0000000000
+quotes:   00000000000001011001010000010100001</code></pre>
+<p>But this doesn’t actually help me.</p>
+<p>I want to clear all the bits marked by <code>*</code> without clearing the the other bits.</p>
+<p>I can’t use <code>quotes</code> as a mask because everywhere there is a <code>1</code> bit regardless of whether it is correct (ie. <code>1</code>) or incorrect (ie. <code>*</code>), the corresponding bit in <code>quotes</code> is zero.</p>
+<p>Furthermore I don’t actually care about the <code>1</code> bits in <code>quotes</code> because there can never be a delimiter or newline at a position that is already occupied by a quote <code>&quot;</code>.</p>
+<p>Instead I need something like <code>mask</code> below, which has a <code>1</code> bit everywhere that is unquoted and a <code>0</code> bit everywhere that is quoted:</p>
+<pre class="text"><code>text:     aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
+markers:  000100010000000000001000*000100*000
+newlines: 000000000000000000000000*0000000000
+quotes:   00000000000001011001010000010100001
+mask:     1111111111111?0??00?1?00000?1?0000?</code></pre>
+<p>I’ve also marked the locations that correspond to a double-quote as <code>?</code> because I don’t care about the bits at these locations because they can’t affect the outcome when I use <code>mask</code> to mask out the undersireable bits in the rank-select bit-string.</p>
+<p>So how do I build a bit-string like <code>mask</code>?</p>
+<p>The information I need to build this bit-string is contained withing the <code>quotes</code> bit-string. If I traverse the <code>quotes</code> bit-string bit-by-bit with the initial state of <code>1</code> and I flip my state every-time I encounter a <code>1</code> in <code>quotes</code>, I get the bit-string I need.</p>
+<p>But this approach undermines the performance of the parser because now we are reduced to parsing the bit-string bit-by-bit, which is just as bad as parsing the CSV text byte-by-byte.</p>
+<p>We have failed to exploit data parallelism to give us the performance we want.</p>
+<p>But all is not lost.</p>
+<p>Let’s look at our <code>quotes</code> bit-string more carefully. There are two kinds of <code>1</code> bits in our bit-string. All the <code>1</code> bits come in pairs.</p>
+<p>In the scheme we just discussed earlier, the first of each pair marked by <code>(</code> takes our state from <code>1</code> to <code>0</code> to indicate we have entered the quoted state and the second of each pair marked by <code>)</code> takes out state from <code>0</code> to <code>1</code> to indicate we have exited the quoted state.</p>
+<pre class="text"><code>quotes:   0000000000000(0)(00)0(00000)0(0000)</code></pre>
+<p>Let’s say we somehow have a way to split the <code>quotes</code> bit-string into two separate bit-string very efficiently into an <code>enters</code> bit-string and and <code>exits</code> bit-string. Does that put us in a better position?</p>
+<pre class="text"><code>quotes:   0000000000000(0)(00)0(00000)0(0000)
+enters:   00000000000001001000010000000100000
+exits:    00000000000000010001000000010000001
+mask:     1111111111111?0??00?1?00000?1?0000?</code></pre>
+<p>Sadly, the path forward still seems unclear.</p>
+<p>What if we invert all the bits in <code>exits</code> to produce a new bit-string <code>~exits</code>?</p>
+<pre class="text"><code>quotes:   0000000000000(0)(00)0(00000)0(0000)
+enters:   00000000000001001000010000000100000
+exits:    00000000000000010001000000010000001
+~exits:   11111111111111101110111111101111110
+mask:     1111111111111?0??00?1?00000?1?0000?</code></pre>
+<p>Hmmm. It looks better because it seems closer to the desired bits in <code>mask</code>.</p>
+<p>But the improvement is superficial. I’ve flipped some bits that needed to be a <code>1</code> to the desired value, but at a cost of flipping some other bits that need to be a <code>0</code> into a <code>1</code> as well.</p>
+<p>I’ve flipped too much. Perhaps I am no closer after all.</p>
+<p>But wait! I’ve not used <code>enters</code> yet!</p>
+<p>I may have flipped too much, but enters tells me exactly from which point where I could compensate by flipping the following bits back to <code>0</code>.</p>
+<p>What operation could possibly do that?</p>
+<p>What I have are a bunch of consecutive ones separated by one or more <code>0</code>s. The bits I need to flip always form a zero more lengthed suffix of these consecutive <code>1</code>s. And the <code>enters</code> bit-string tells me the starting position of all those flips!</p>
+<p>There is an operation that allows me to flip runs of <code>1</code> bits and it is the humble addition operator <code>+</code>.</p>
+<p>If I add <code>enters</code> to <code>~exits</code>, the <code>1</code> bits in <code>enters</code> will cause a cascade of carries starting from their position through the runs of <code>1</code>s in <code>~exits</code> until the next <code>0</code>, where it will drop a <code>1</code> and the carries will terminate.</p>
+<p>Let’s try that and see what we get:</p>
+<pre class="text"><code>quotes:         0000000000000(0)(00)0(00000)0(0000)
+enters:         00000000000001001000010000000100000
+exits:          00000000000000010001000000010000001
+~exits:         11111111111111101110111111101111110
+enters+~exits:  11111111111110010001100000011000001
+mask:           1111111111111?0??00?1?00000?1?0000?</code></pre>
+<p>Like magic, the erroneously flipped bits corrected themselves, and all the bits that I care about match between <code>enters+~exits</code> and <code>mask</code>.</p>
+<p>This means <code>enters+~exits</code> can serve as our mask.</p>
+<p>So let’s perform this masking operation on our rank-select bit-strings:</p>
+<pre class="text"><code>text:             aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
+markers:          000100010000100000001000*000100*000
+newlines:         000000000000100000000000*0000000000
+enters+~exits:    11111111111110010001100000011000001
+masked-markers:   00010001000010000000100000001000000
+masked-newlines:  00000000000010000000000000000000000</code></pre>
+<p>Voilà!</p>
+<p>We’ve successfully cleared the erroneously set bits at the positions marked by <code>*</code> and we have the correct rank-select bit-strings with which we can parse all our RFC4180 compliant CSV files without loss of data-parallelism!</p>
+<h2 id="not-so-fast">Not so fast</h2>
+<p>I mentioned briefly in order to pull this off I needed an operation that could split my <code>quotes</code> bit-string into separately into two bit-strings that marked the first and second bits of each pair of <code>1</code> bits in quotes:</p>
+<pre class="text"><code>quotes:   0000000000000(0)(00)0(00000)0(0000)
+enters:   00000000000001001000010000000100000
+exits:    00000000000000010001000000010000001</code></pre>
+<p>Without this, all things fall apart.</p>
+<p>But do not fear. Next week, I will explain how to pull this off. Stay tuned!</p>]]></description>
+    <pubDate>Wed, 15 Aug 2018 00:00:00 UT</pubDate>
+    <guid>https://haskell-works.github.io/posts/2018-08-15-data-parallel-rfc-compliant-csv-parsing.html</guid>
+    <dc:creator>Haskell Works</dc:creator>
+</item>
+<item>
     <title>Data-Parallel Rank-Select Bit-String construction</title>
     <link>https://haskell-works.github.io/posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html</link>
     <description><![CDATA[<p>So far, I’ve <a href="../posts/2018-08-01-introduction-to-rank-select-bit-string.html">posted</a> about the problems with traditional parser and offered a glimpse of how they might be solved, but succinct data structures are quite alien and it isn’t obvious the pay-off will be worthwhile.</p>
