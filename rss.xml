@@ -60,7 +60,7 @@ result 1011100100000000</code></pre>
 <a class="sourceLine" id="cb4-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pext source mask</a>
 <a class="sourceLine" id="cb4-8" data-line-number="8"><span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span></a></code></pre></div>
 <h1 id="parallel-deposit">Parallel Deposit</h1>
-<p>The <code>pdep</code> or “parallel deposit” operation, is an operation that takes a bit-mask and deposits the least-significant n-bits from the <code>source</code> word where <code>n</code> is the number of bits in the bit-mask and deposit them at the positions mark by 1-bits in the bit-mask.</p>
+<p>The <code>pdep</code> or “parallel deposit” operation, is an operation that takes a bit-mask and deposits the least-significant n-bits from the <code>source</code> word where <code>n</code> is the number of bits in the bit-mask and deposits them at the positions marked by 1-bits in the bit-mask.</p>
 <pre class="text"><code>* All words in Little-Endian *
 
 mask   0011001100110011
@@ -85,7 +85,7 @@ bits   0010001100100001</code></pre>
 <a class="sourceLine" id="cb6-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep source mask</a>
 <a class="sourceLine" id="cb6-8" data-line-number="8"><span class="st">&quot;00000101 00001010 00001001 00001000&quot;</span></a></code></pre></div>
 <h1 id="availability-on-ghc">Availability on GHC</h1>
-<p>In Haskell, the <code>popCount</code> operation is avilable via the <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/Data-Bits.html#v:popCount"><code>popCount</code></a> function in <code>Data.Bits</code> module of the <a href="http://hackage.haskell.org/package/base">base</a> package.</p>
+<p>In Haskell, the <code>popCount</code> operation is available via the <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/Data-Bits.html#v:popCount"><code>popCount</code></a> function in <code>Data.Bits</code> module of the <a href="http://hackage.haskell.org/package/base">base</a> package.</p>
 <p>On most modern x86 systems, the <code>popCount</code> operation is available on 64-bit integers in the form of the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4093&amp;text=popcnt"><code>POPCNT</code></a> CPU instruction, so it is very fast.</p>
 <p>It is also available to C programs by way of the <code>_popcnt64</code> CPU intrinsic, but what about Haskell?</p>
 <p>To confirm that the function does in fact compile down to an instruction we first check the <a href="https://github.com/ghc/ghc/blob/8df24474d0194d28b8273c1539af05793156e23f/libraries/base/Data/Bits.hs#L508">definition</a> here.</p>
@@ -146,7 +146,7 @@ bits   0010001100100001</code></pre>
 <figure>
 <img src="../images/x86-select.png" alt="Select in terms of Parallel Deposit" /><figcaption>Select in terms of Parallel Deposit</figcaption>
 </figure>
-<p>The <code>select i</code> of a bit-string is length of the smallest prefix that includes <code>i</code> 1-bits in the bit-string. Unfortunately, I feel like there is are off-by-one error in the formula and that it should actually be:</p>
+<p>The <code>select i</code> of a bit-string is length of the smallest prefix that includes <code>i</code> 1-bits in the bit-string. Unfortunately, I feel like there is an off-by-one error in the formula and that it should actually be:</p>
 <blockquote>
 <code>select(v, i) = tzcnt(pdep(2</code><sup><code>i-1</code></sup><code>)) + 1</code>
 </blockquote>
@@ -165,16 +165,17 @@ bits   0010001100100001</code></pre>
 (d) 1                 *** 4             ****** 7         ******** 9       ************ 13</code></pre>
 <h2 id="splitting-a-bit-string-to-odd-and-even-bits">Splitting a bit-string to odd and even bits</h2>
 <p>In last week’s <a href="../posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html">post</a>, I explained that in order to create the rank-select bit-strings for an RFC compliant CSV format, I needed an operation that can take a bit-string and collect all the odd bits into one bit-string and all the even-bits into another.</p>
-<p>The example I gave is reproduce here:</p>
+<p>The example I gave is reproduced here:</p>
 <pre class="text"><code>text:     aaa,bbb,ccc␍␊&quot;a&quot;&quot;aa&quot;,&quot;b␍␊bb&quot;,&quot;c,cc&quot;
 quotes:   00000000000001011001010000010100001
 parens:   0000000000000(0)(00)0(00000)0(0000)
 enters:   00000000000001001000010000000100000
 exits:    00000000000000010001000000010000001</code></pre>
+<p>In this post I will be using <code>odds</code> in place of <code>enters</code> because these are the <code>odd</code> bits and <code>evens</code> in place of <code>exits</code> because these are the <code>even</code> bits in our bit-string.</p>
 <p>The opening parentheses <code>(</code> represents all the 1-bits that opening quotes of a quoted string and the closing parentheses <code>)</code> represents all the 1-bits that represents for the closing quotes.</p>
-<p>We need to build <code>enters</code> which has all the odd 1-bits (ie. the opening quotes) and <code>leaves</code> which has all the even 1-bits (ie. the closing quotes).</p>
-<p>We must somehow be able to produce the bit-strings <code>enters</code> and <code>exits</code> from the bit-string <code>quotes</code> very efficiently.</p>
-<p>This is actually very easy with a single application <code>pdep</code> operation for each bit-string we produce:</p>
+<p>We need to build <code>odds</code> which has all the odd 1-bits (ie. the opening quotes) and <code>leaves</code> which has all the even 1-bits (ie. the closing quotes).</p>
+<p>We must somehow be able to produce the bit-strings <code>odds</code> and <code>evens</code> from the bit-string <code>quotes</code> very efficiently.</p>
+<p>This is actually very easy with a single application of the <code>pdep</code> operation for each bit-string we produce:</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
 <a class="sourceLine" id="cb13-2" data-line-number="2"></a>
 <a class="sourceLine" id="cb13-3" data-line-number="3"><span class="fu">$</span> stack repl</a>
@@ -190,11 +191,11 @@ exits:    00000000000000010001000000010000001</code></pre>
 <a class="sourceLine" id="cb13-13" data-line-number="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
 <p>I will leave it to the reader to work out why this works. 😉</p>
 <h1 id="next-steps">Next steps</h1>
-<p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CVS text at a time.</p>
-<p>We also have the ability to split the odds and even bits of out bit-string into separate bit-strings.</p>
-<p>All the conceptual pieces needed to produce the necessary rank-select bit-strings for our high-performance RFC compliant CVS parser and pieces need to subsequently traverse the CSV text and extract interesting data have been described.</p>
+<p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CSV text at a time.</p>
+<p>We also have the ability to split the odds and even bits out of our bit-string into separate bit-strings.</p>
+<p>All the conceptual pieces needed to produce the necessary rank-select bit-strings for our high-performance RFC compliant CSV parser and pieces need to subsequently traverse the CSV text and extract interesting data have been described.</p>
 <p>In my next post I will talk about how SIMD instructions can be used to make our parser go even faster!</p>
-<p>Stay tune!</p>]]></description>
+<p>Stay tuned!</p>]]></description>
     <pubDate>Wed, 22 Aug 2018 00:00:00 UT</pubDate>
     <guid>https://haskell-works.github.io/posts/2018-08-22-pdep-and-pext-bit-manipulation-functions.html</guid>
     <dc:creator>Haskell Works</dc:creator>
