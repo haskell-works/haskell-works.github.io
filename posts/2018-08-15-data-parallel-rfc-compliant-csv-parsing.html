@@ -33,7 +33,7 @@
     
   </section>
   <section>
-    <p>In last week’s post I described how to exploit data-parallelism to build a rank-select bit-string for a <code>cut</code> compatible delimeter-separated-values format, parsing 8-bytes at-a-time.</p>
+    <p>In last week’s <a href="../posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html">post</a> I described how to exploit data-parallelism to build a rank-select bit-string for a <code>cut</code> compatible delimeter-separated-values format, parsing 8-bytes at-a-time.</p>
 <p>In this post we will look at how to do the same for the CSV format described in <a href="https://tools.ietf.org/html/rfc4180">RFC4180</a>, where complicating factors such as quotes, escaping, and quoted control characters cannot be ignored.</p>
 <h2 id="the-rfc-format">The RFC format</h2>
 <p>The data-parallel parser will need to deal with the following cases where carriage-return characters are represented by <code>␍</code> and line-feed characters are represented by ␊:</p>
