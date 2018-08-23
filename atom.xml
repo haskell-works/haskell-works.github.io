@@ -194,9 +194,9 @@ exits:    00000000000000010001000000010000001</code></pre>
 <a class="sourceLine" id="cb13-13" data-line-number="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
 <p>I will leave it to the reader to work out why this works. 😉</p>
 <h1 id="next-steps">Next steps</h1>
-<p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CVS text at a time.</p>
+<p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CSV text at a time.</p>
 <p>We also have the ability to split the odds and even bits of out bit-string into separate bit-strings.</p>
-<p>All the conceptual pieces needed to produce the necessary rank-select bit-strings for our high-performance RFC compliant CVS parser and pieces need to subsequently traverse the CSV text and extract interesting data have been described.</p>
+<p>All the conceptual pieces needed to produce the necessary rank-select bit-strings for our high-performance RFC compliant CSV parser and pieces need to subsequently traverse the CSV text and extract interesting data have been described.</p>
 <p>In my next post I will talk about how SIMD instructions can be used to make our parser go even faster!</p>
 <p>Stay tune!</p>]]></summary>
 </entry>
