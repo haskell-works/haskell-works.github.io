@@ -7,8 +7,184 @@
         <description><![CDATA[]]></description>
         <atom:link href="https://haskell-works.github.io/rss.xml" rel="self"
                    type="application/rss+xml" />
-        <lastBuildDate>Wed, 22 Aug 2018 00:00:00 UT</lastBuildDate>
+        <lastBuildDate>Mon, 03 Sep 2018 00:00:00 UT</lastBuildDate>
         <item>
+    <title>Introduction to SIMD with linecount</title>
+    <link>https://haskell-works.github.io/posts/2018-09-03-simd-with-linecount.html</link>
+    <description><![CDATA[<p>In a <a href="../posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html">previous post</a> I talked about using broadword techniques to create a rank-select bit-string from text.</p>
+<p>This post will explore using Single Instruction, Multiple Data (SIMD) instructions to achieve the same thing.</p>
+<p>The exploration will benchmark the SIMD, broadword and naive implementations of line count to illustrate why SIMD instructions are important to improving parsing performance.</p>
+<h1 id="creating-a-rank-select-bit-string-with-simd">Creating a rank-select bit-string with SIMD</h1>
+<p>Recall from the earlier post that we can build a rank-select bit-string from a piece of text like this:</p>
+<pre class="text"><code>&quot;name&quot;,&quot;age&quot;,&quot;profession&quot;␤John,30,Code Monkey␤Kyle,40,Data Scrubber
+0000000000000000000000000100000000000000000001000000000000000000000</code></pre>
+<p>Here, I mark every bit that corresponds to a newline character at the corresponding position in the text.</p>
+<p>From this bit-string, we can use the <code>popCount</code> operation to add up the number of 1-bits in the string to arrive at the line count for our text.</p>
+<p>Recall that we were able to use broadword programming techniques to do this conversion:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb2-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb2-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb2-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb2-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<p>This approach allowed us to process 8 bytes at a time at the cost of three OR <code>(.|.)</code>, three SHIFT <code>(.&gt;.)</code> and one <code>pext</code> operations, all of which are very cheap.</p>
+<p>Whilst, broadword techniques allowed us to do this 8 bytes at a time, SIMD instructions that exist on some generations of CPUs can help us build our rank-select bit-string in a way that lets us process 16, 32 or even 64-bytes at a time.</p>
+<p>On my Macbook, I can run a command to determine what the features my CPU has:</p>
+<pre><code>$ sysctl -a | grep cpu | grep features:
+machdep.cpu.features: FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH DS ACPI MMX FXSR SSE SSE2 SS HTT TM PBE SSE3 PCLMULQDQ DTES64 MON DSCPL VMX SMX EST TM2 SSSE3 FMA CX16 TPR PDCM SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES PCID XSAVE OSXSAVE SEGLIM64 TSCTMR AVX1.0 RDRAND F16C
+machdep.cpu.leaf7_features: SMEP ERMS RDWRFSGS TSC_THREAD_OFFSET BMI1 HLE AVX2 BMI2 INVPCID RTM SMAP RDSEED ADX IPT SGX FPU_CSDS MPX CLFSOPT
+machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TSCI</code></pre>
+<p>From this list, I know that my CPU supports the AVX2 instruction set which makes available CPU intrinsics such as <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766&amp;text=_mm256_cmpeq_epi8"><code>_mm256_cmpeq_epi8</code></a> asn <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a>.</p>
+<p>With 256-bit registers, we’re in a position to improve our parallelism from 8 to 32 bytes at a time.</p>
+<p>Now let’s starting indexing out text.</p>
+<p>In C, we first need to initialise a SIMD register to contain 32 copies of our delimiter byte (in this case newline characters):</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb4-1" data-line-number="1">__m256i ws_newline = broadcast_u8((<span class="dt">uint8_t</span>)<span class="ch">&#39;\n&#39;</span>);</a></code></pre></div>
+<p>then we loop over the bytes 32-bytes at a time and perform a parallel comparison on each chunk:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="dt">char</span> *text          = ...; <span class="co">// The text to parse</span></a>
+<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="dt">size_t</span> text_length  = ...; <span class="co">// The length of the text to parse</span></a>
+<a class="sourceLine" id="cb5-3" data-line-number="3"><span class="dt">uint32_t</span> *target    = ...; <span class="co">// The buffer for the rank-select bit-string we are building</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb5-5" data-line-number="5"><span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i != bytes_end; i += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb5-6" data-line-number="6">  __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
+<a class="sourceLine" id="cb5-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb5-8" data-line-number="8">  <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes[<span class="dv">3</span>]);</a>
+<a class="sourceLine" id="cb5-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb5-10" data-line-number="10">  target[i / <span class="dv">32</span>] = (<span class="dt">uint32_t</span>)matches_bits;</a>
+<a class="sourceLine" id="cb5-11" data-line-number="11">}</a></code></pre></div>
+<p>The above code compares each byte in <code>ws_newlines</code> with the corresponding byte in <code>(__m256i*)text</code>.</p>
+<p><code>matches_bytes</code> will contain 32 bytes, each of which will hold one of two values: <code>0x00</code> or <code>0xff</code> dependending on whether the corresponding byte in <code>(__m256i*)text</code> was equal to the corresponding by in <code>matches_bytes</code>.</p>
+<p>The <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> function is then used to compress this result by taking the high bit of each byte in <code>matches_bytes</code> and packing them into <code>matches_bits</code>.</p>
+<p>Compared to the broadword implementation, this reduces the number of load/stores by a factor of 8 and the number of register instructions for a 32-byte chunk from 56 to 2.</p>
+<h1 id="benchmarking">Benchmarking</h1>
+<p>To look at the potential performance gains from using SIMD versus other alternatives, I’ve written three versions of a tool that counts the number of lines in a text file: <code>naive</code>, <code>broadword</code> and <code>simd</code></p>
+<h2 id="naive">Naive</h2>
+<p>The naive version does nothing more than traverse the text byte-by-byte and compare each byte for equality and incrementing a count on success:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb6-2" data-line-number="2">{</a>
+<a class="sourceLine" id="cb6-3" data-line-number="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb6-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb6-5" data-line-number="5">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; ++i)</a>
+<a class="sourceLine" id="cb6-6" data-line-number="6">  {</a>
+<a class="sourceLine" id="cb6-7" data-line-number="7">    <span class="cf">if</span> (text[i] == <span class="ch">&#39;\n&#39;</span>) {</a>
+<a class="sourceLine" id="cb6-8" data-line-number="8">      ++popCount;</a>
+<a class="sourceLine" id="cb6-9" data-line-number="9">    }</a>
+<a class="sourceLine" id="cb6-10" data-line-number="10">  }</a>
+<a class="sourceLine" id="cb6-11" data-line-number="11"></a>
+<a class="sourceLine" id="cb6-12" data-line-number="12">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb6-13" data-line-number="13">}</a></code></pre></div>
+<h2 id="broadword">Broadword</h2>
+<p>The broadword version uses the XOR operation to perform parallel comparison of all 8 bytes in the word with one instruction and relies on a small number of SHIFTS (<code>&gt;&gt;</code>) and ANDS (<code>&amp;</code>) to convert the result into the bit-string we need:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb7-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb7-2" data-line-number="2">{</a>
+<a class="sourceLine" id="cb7-3" data-line-number="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb7-4" data-line-number="4">  <span class="dt">char</span> *mask = <span class="st">&quot;</span><span class="sc">\n\n\n\n\n\n\n\n</span><span class="st">&quot;</span>;</a>
+<a class="sourceLine" id="cb7-5" data-line-number="5">  <span class="dt">uint64_t</span> wm = *(<span class="dt">uint64_t</span> *)mask;</a>
+<a class="sourceLine" id="cb7-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb7-7" data-line-number="7">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">8</span>) {</a>
+<a class="sourceLine" id="cb7-8" data-line-number="8">    <span class="cf">if</span> (i + <span class="dv">8</span> &lt;= bytes_read) {</a>
+<a class="sourceLine" id="cb7-9" data-line-number="9">      <span class="dt">uint64_t</span> w0 = ~(*(<span class="dt">uint64_t</span> *)(text + i) ^ wm);</a>
+<a class="sourceLine" id="cb7-10" data-line-number="10">      <span class="dt">uint64_t</span> w1 = (w0 &gt;&gt; <span class="dv">4</span>) &amp; w0; <span class="co">// Not a typo.  See De Morgan&#39;s law.</span></a>
+<a class="sourceLine" id="cb7-11" data-line-number="11">      <span class="dt">uint64_t</span> w2 = (w1 &gt;&gt; <span class="dv">2</span>) &amp; w1;</a>
+<a class="sourceLine" id="cb7-12" data-line-number="12">      <span class="dt">uint64_t</span> w3 = (w2 &gt;&gt; <span class="dv">1</span>) &amp; w2;</a>
+<a class="sourceLine" id="cb7-13" data-line-number="13"></a>
+<a class="sourceLine" id="cb7-14" data-line-number="14">      <span class="dt">uint64_t</span> bits = (<span class="dt">uint64_t</span>)_pext_u64(w3, 0x0101010101010101L);</a>
+<a class="sourceLine" id="cb7-15" data-line-number="15"></a>
+<a class="sourceLine" id="cb7-16" data-line-number="16">      popCount += _popcnt64(bits);</a>
+<a class="sourceLine" id="cb7-17" data-line-number="17">    } <span class="cf">else</span> {</a>
+<a class="sourceLine" id="cb7-18" data-line-number="18">      <span class="cf">for</span> (<span class="dt">size_t</span> j = i; j &lt; bytes_read; ++j) {</a>
+<a class="sourceLine" id="cb7-19" data-line-number="19">        <span class="cf">if</span> (text[j] == <span class="ch">&#39;\n&#39;</span>) {</a>
+<a class="sourceLine" id="cb7-20" data-line-number="20">          ++popCount;</a>
+<a class="sourceLine" id="cb7-21" data-line-number="21">        }</a>
+<a class="sourceLine" id="cb7-22" data-line-number="22">      }</a>
+<a class="sourceLine" id="cb7-23" data-line-number="23">    }</a>
+<a class="sourceLine" id="cb7-24" data-line-number="24">  }</a>
+<a class="sourceLine" id="cb7-25" data-line-number="25"></a>
+<a class="sourceLine" id="cb7-26" data-line-number="26">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb7-27" data-line-number="27">}</a></code></pre></div>
+<p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 64-bit word.</p>
+<h2 id="simd">SIMD</h2>
+<p>The SIMD version requires a register to be initialised with the our delimiter replicated to all bytes of the SIMD register in the <code>ws_newlines</code> argument with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4676&amp;text=_mm256_set1_epi8"><code>_mm256_set1_epi8</code></a> intrinsic.</p>
+<p>This value is then compared to the text 64-bytes at a time with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766&amp;text=_mm256_cmpeq_epi8"><code>_mm256_cmpeq_epi8</code></a> intrinsic and summarised into a bit-string with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> intrinsic.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb8-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">{</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">  __m256i ws_newlines = _mm256_set1_epi8(<span class="ch">&#39;\n&#39;</span>);</a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">  <span class="dt">char</span> *bytes_end = text + bytes_read;</a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb8-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb8-7" data-line-number="7">  <span class="cf">if</span> ((bytes_read &amp; <span class="bn">0x1f</span>) == <span class="dv">0</span>) {</a>
+<a class="sourceLine" id="cb8-8" data-line-number="8">    <span class="cf">for</span> (; text != bytes_end; text += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-9" data-line-number="9">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)text, ws_newlines);</a>
+<a class="sourceLine" id="cb8-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb8-11" data-line-number="11">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
+<a class="sourceLine" id="cb8-12" data-line-number="12"></a>
+<a class="sourceLine" id="cb8-13" data-line-number="13">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)matches_bits);</a>
+<a class="sourceLine" id="cb8-14" data-line-number="14">    }</a>
+<a class="sourceLine" id="cb8-15" data-line-number="15">  } <span class="cf">else</span> {</a>
+<a class="sourceLine" id="cb8-16" data-line-number="16">    <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-17" data-line-number="17">      <span class="dt">size_t</span> bytes_read_iter = bytes_read - i;</a>
+<a class="sourceLine" id="cb8-18" data-line-number="18"></a>
+<a class="sourceLine" id="cb8-19" data-line-number="19">      <span class="cf">if</span> (bytes_read_iter &gt; <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-20" data-line-number="20">        bytes_read_iter = <span class="dv">32</span>;</a>
+<a class="sourceLine" id="cb8-21" data-line-number="21">      }</a>
+<a class="sourceLine" id="cb8-22" data-line-number="22"></a>
+<a class="sourceLine" id="cb8-23" data-line-number="23">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
+<a class="sourceLine" id="cb8-24" data-line-number="24"></a>
+<a class="sourceLine" id="cb8-25" data-line-number="25">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
+<a class="sourceLine" id="cb8-26" data-line-number="26"></a>
+<a class="sourceLine" id="cb8-27" data-line-number="27">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)((<span class="bn">0xffffffff</span> &gt;&gt; (<span class="dv">32</span> - bytes_read_iter)) &amp; (<span class="dt">uint32_t</span>)matches_bits));</a>
+<a class="sourceLine" id="cb8-28" data-line-number="28">    }</a>
+<a class="sourceLine" id="cb8-29" data-line-number="29">  }</a>
+<a class="sourceLine" id="cb8-30" data-line-number="30"></a>
+<a class="sourceLine" id="cb8-31" data-line-number="31">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb8-32" data-line-number="32">}</a></code></pre></div>
+<p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 256-bit SIMD register.</p>
+<h1 id="initial-benchmark-results">Initial benchmark results</h1>
+<p>I benchmark the three versions of the code in C as well as <code>wc -l</code> as a baseline.</p>
+<p>The source code for the benchmarks can be found <a href="https://github.com/haskell-works/blog-examples/tree/3f65f1d6c4dac274e57b9ddcf4c610d321fb3234/linecount">here</a> and the results <a href="https://github.com/haskell-works/blog-examples/commit/3f65f1d6c4dac274e57b9ddcf4c610d321fb3234">here</a>.</p>
+<p>The code is compiled with <code>-mavx2 -mbmi2</code> to enable access to the SIMD and bit manipulation instructions I need.</p>
+<pre class="text"><code>wc -l                   0m5.458s
+./naive.auto.out        0m2.654s
+./broadword.auto.out    0m2.963s
+./simd.auto.out         0m1.759s</code></pre>
+<p>I find that <code>wc -l</code> is the slowest and the <code>simd</code> implementation the fastest and the broadword implementation performs somewhere in between.</p>
+<p>That much is as expected.</p>
+<p>The surprise here is that the naive version runs faster than the broadword version.</p>
+<p>What is going on here?</p>
+<p>Before jumping to conclusions, let’s take a look at the assembly code generated for the naive version:</p>
+<pre class="text"><code>_process_data:                          ## @process_data
+    .cfi_startproc
+...
+## BB#8:
+    leaq            -1(%r8), %rdx
+    subq            %rax, %rdx
+    vpxor           %ymm8, %ymm8, %ymm8
+    xorl            %eax, %eax
+    vpbroadcastd    LCPI0_0(%rip), %xmm4 ## xmm4 = [10,10,10,10]
+    vpbroadcastq    LCPI0_1(%rip), %ymm5 ## ymm5 = [1,1,1,1]
+    vpxor           %ymm9, %ymm9, %ymm9
+    vpxor           %ymm2, %ymm2, %ymm2
+    vpxor           %ymm3, %ymm3, %ymm3
+    .p2align 4, 0x90
+...
+    .cfi_endproc</code></pre>
+<p>If we lookup the Intel documentation for the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,534&amp;text=vpbroadcastq"><code>vpbroadcastq</code></a> and <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,534,5724&amp;text=vpxor"><code>vpxor</code></a> instructions we find that these functions are SIMD instructions and that <code>gcc</code> has auto-vectorised the naive implementation.</p>
+<p>The naive implementation was in fact elaborately auto-vectorised that a 14 line C function became 152 lines of assembly code.</p>
+<p>If we deny <code>gcc</code> the freedom to auto-vectorise the code with the <code>-fno-tree-vectorize</code> flag we get <code>71</code> lines of assembly instead and suffer worse results by far:</p>
+<pre class="text"><code>./naive.out           0m4.659s
+./broadword.out       0m2.960s
+./simd.out            0m1.703s
+wc -l                 0m5.458s</code></pre>
+<p>GHC currently does not perform any auto-vectorisation, so I’d expected the naive version when written in Haskell would perform no better than the naive C implementation without auto-vectorsation.</p>
+<h1 id="closing-remarks">Closing remarks</h1>
+<p>The benchmarks make a compelling case for using SIMD instructions where ever possible and broadword where the target CPU architecture does not support the SIMD instructions we need.</p>
+<p>Unfortunately, GHC does not have native support for the SIMD instructions we need.</p>
+<p>In a future post I’ll look at using these SIMD from GHC using Foreign Function Interface (FFI) and addressing some of the challenges of using SIMD with Haskell’s lazy IO.</p>]]></description>
+    <pubDate>Mon, 03 Sep 2018 00:00:00 UT</pubDate>
+    <guid>https://haskell-works.github.io/posts/2018-09-03-simd-with-linecount.html</guid>
+    <dc:creator>Haskell Works</dc:creator>
+</item>
+<item>
     <title>Bit-manipulation operations for high-performance succinct data-structures and CSV parsing</title>
     <link>https://haskell-works.github.io/posts/2018-08-22-pdep-and-pext-bit-manipulation-functions.html</link>
     <description><![CDATA[<p>In last week’s <a href="../posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html">post</a> I described how to produce rank-select bit-strings for an RFC-compliant CSV format without detailing how to perform efficiently the operation that splits odd and even bits of a bit-string into separate bit-strings.</p>

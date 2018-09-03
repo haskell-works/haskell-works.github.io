@@ -27,17 +27,17 @@
       <h1>Introduction to SIMD with linecount</h1>
       <article>
   <section class="header">
-    Posted on October  7, 2018
+    Posted on September  3, 2018
     
       by John Ky
     
   </section>
   <section>
-    <p>In a previous post I talked about using broadword techniques to create a rank-select bit-string from text.</p>
+    <p>In a <a href="../posts/2018-08-08-data-parallel-rank-select-bit-string-construction.html">previous post</a> I talked about using broadword techniques to create a rank-select bit-string from text.</p>
 <p>This post will explore using Single Instruction, Multiple Data (SIMD) instructions to achieve the same thing.</p>
 <p>The exploration will benchmark the SIMD, broadword and naive implementations of line count to illustrate why SIMD instructions are important to improving parsing performance.</p>
 <h1 id="creating-a-rank-select-bit-string-with-simd">Creating a rank-select bit-string with SIMD</h1>
-<p>Recall from the earlier post that we can build a rank-select bit-string from a text like this:</p>
+<p>Recall from the earlier post that we can build a rank-select bit-string from a piece of text like this:</p>
 <pre class="text"><code>&quot;name&quot;,&quot;age&quot;,&quot;profession&quot;␤John,30,Code Monkey␤Kyle,40,Data Scrubber
 0000000000000000000000000100000000000000000001000000000000000000000</code></pre>
 <p>Here, I mark every bit that corresponds to a newline character at the corresponding position in the text.</p>
@@ -51,7 +51,7 @@
 <a class="sourceLine" id="cb2-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
 <a class="sourceLine" id="cb2-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>This approach allowed us to process 8 bytes at a time at the cost of three OR <code>(.|.)</code>, three SHIFT <code>(.&gt;.)</code> and one <code>pext</code> operations, all of which are very cheap.</p>
-<p>Whilst, broadword techniques allowed us to do this 8 bytes at a time SIMD instructions exist on some generations of CPUs that can help us build our rank-select bit-string in a way that lets us process 16, 32 or even 64-bytes at a time.</p>
+<p>Whilst, broadword techniques allowed us to do this 8 bytes at a time, SIMD instructions that exist on some generations of CPUs can help us build our rank-select bit-string in a way that lets us process 16, 32 or even 64-bytes at a time.</p>
 <p>On my Macbook, I can run a command to determine what the features my CPU has:</p>
 <pre><code>$ sysctl -a | grep cpu | grep features:
 machdep.cpu.features: FPU VME DE PSE TSC MSR PAE MCE CX8 APIC SEP MTRR PGE MCA CMOV PAT PSE36 CLFSH DS ACPI MMX FXSR SSE SSE2 SS HTT TM PBE SSE3 PCLMULQDQ DTES64 MON DSCPL VMX SMX EST TM2 SSSE3 FMA CX16 TPR PDCM SSE4.1 SSE4.2 x2APIC MOVBE POPCNT AES PCID XSAVE OSXSAVE SEGLIM64 TSCTMR AVX1.0 RDRAND F16C
@@ -59,22 +59,27 @@ machdep.cpu.leaf7_features: SMEP ERMS RDWRFSGS TSC_THREAD_OFFSET BMI1 HLE AVX2 B
 machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TSCI</code></pre>
 <p>From this list, I know that my CPU supports the AVX2 instruction set which makes available CPU intrinsics such as <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766&amp;text=_mm256_cmpeq_epi8"><code>_mm256_cmpeq_epi8</code></a> asn <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a>.</p>
 <p>With 256-bit registers, we’re in a position to improve our parallelism from 8 to 32 bytes at a time.</p>
-<p>In C, we first need to initialise a register to contain 32 copies of our our delimiter (in this case newline characters):</p>
+<p>Now let’s starting indexing out text.</p>
+<p>In C, we first need to initialise a SIMD register to contain 32 copies of our delimiter byte (in this case newline characters):</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb4-1" data-line-number="1">__m256i ws_newline = broadcast_u8((<span class="dt">uint8_t</span>)<span class="ch">'\n'</span>);</a></code></pre></div>
 <p>then we loop over the bytes 32-bytes at a time and perform a parallel comparison on each chunk:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="cf">for</span> (; text != bytes_end; text += <span class="dv">32</span>) {</a>
-<a class="sourceLine" id="cb5-2" data-line-number="2">  __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)text, ws_newlines);</a>
-<a class="sourceLine" id="cb5-3" data-line-number="3"></a>
-<a class="sourceLine" id="cb5-4" data-line-number="4">  <span class="dt">int</span> matches_bits =[ _mm256_movemask_epi8(matches_bytes][<span class="dv">3</span>]);</a>
-<a class="sourceLine" id="cb5-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb5-6" data-line-number="6">  bits[text / <span class="dv">32</span>] = (<span class="dt">uint32_t</span>)matches_bits;</a>
-<a class="sourceLine" id="cb5-7" data-line-number="7">}</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="dt">char</span> *text          = ...; <span class="co">// The text to parse</span></a>
+<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="dt">size_t</span> text_length  = ...; <span class="co">// The length of the text to parse</span></a>
+<a class="sourceLine" id="cb5-3" data-line-number="3"><span class="dt">uint32_t</span> *target    = ...; <span class="co">// The buffer for the rank-select bit-string we are building</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb5-5" data-line-number="5"><span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i != bytes_end; i += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb5-6" data-line-number="6">  __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
+<a class="sourceLine" id="cb5-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb5-8" data-line-number="8">  <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes[<span class="dv">3</span>]);</a>
+<a class="sourceLine" id="cb5-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb5-10" data-line-number="10">  target[i / <span class="dv">32</span>] = (<span class="dt">uint32_t</span>)matches_bits;</a>
+<a class="sourceLine" id="cb5-11" data-line-number="11">}</a></code></pre></div>
 <p>The above code compares each byte in <code>ws_newlines</code> with the corresponding byte in <code>(__m256i*)text</code>.</p>
 <p><code>matches_bytes</code> will contain 32 bytes, each of which will hold one of two values: <code>0x00</code> or <code>0xff</code> dependending on whether the corresponding byte in <code>(__m256i*)text</code> was equal to the corresponding by in <code>matches_bytes</code>.</p>
 <p>The <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> function is then used to compress this result by taking the high bit of each byte in <code>matches_bytes</code> and packing them into <code>matches_bits</code>.</p>
-<p>Compared the the broadword implementation, this reduces the number of load/stores by a factor of 8 and the number of register instructions for a 32-byte chunk from 56 to 2.</p>
+<p>Compared to the broadword implementation, this reduces the number of load/stores by a factor of 8 and the number of register instructions for a 32-byte chunk from 56 to 2.</p>
 <h1 id="benchmarking">Benchmarking</h1>
-<p>To look at the potential performance gains from using SIMD vs other alternatives, I’ve written three versions of a tool that does line count on a file: <code>naive</code>, <code>broadword</code> and <code>simd</code></p>
+<p>To look at the potential performance gains from using SIMD versus other alternatives, I’ve written three versions of a tool that counts the number of lines in a text file: <code>naive</code>, <code>broadword</code> and <code>simd</code></p>
 <h2 id="naive">Naive</h2>
 <p>The naive version does nothing more than traverse the text byte-by-byte and compare each byte for equality and incrementing a count on success:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
@@ -119,6 +124,7 @@ machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TS
 <a class="sourceLine" id="cb7-25" data-line-number="25"></a>
 <a class="sourceLine" id="cb7-26" data-line-number="26">  <span class="cf">return</span> popCount;</a>
 <a class="sourceLine" id="cb7-27" data-line-number="27">}</a></code></pre></div>
+<p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 64-bit word.</p>
 <h2 id="simd">SIMD</h2>
 <p>The SIMD version requires a register to be initialised with the our delimiter replicated to all bytes of the SIMD register in the <code>ws_newlines</code> argument with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4676&amp;text=_mm256_set1_epi8"><code>_mm256_set1_epi8</code></a> intrinsic.</p>
 <p>This value is then compared to the text 64-bytes at a time with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766&amp;text=_mm256_cmpeq_epi8"><code>_mm256_cmpeq_epi8</code></a> intrinsic and summarised into a bit-string with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> intrinsic.</p>
@@ -154,6 +160,7 @@ machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TS
 <a class="sourceLine" id="cb8-30" data-line-number="30"></a>
 <a class="sourceLine" id="cb8-31" data-line-number="31">  <span class="cf">return</span> popCount;</a>
 <a class="sourceLine" id="cb8-32" data-line-number="32">}</a></code></pre></div>
+<p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 256-bit SIMD register.</p>
 <h1 id="initial-benchmark-results">Initial benchmark results</h1>
 <p>I benchmark the three versions of the code in C as well as <code>wc -l</code> as a baseline.</p>
 <p>The source code for the benchmarks can be found <a href="https://github.com/haskell-works/blog-examples/tree/3f65f1d6c4dac274e57b9ddcf4c610d321fb3234/linecount">here</a> and the results <a href="https://github.com/haskell-works/blog-examples/commit/3f65f1d6c4dac274e57b9ddcf4c610d321fb3234">here</a>.</p>
@@ -184,15 +191,15 @@ machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TS
 ...
     .cfi_endproc</code></pre>
 <p>If we lookup the Intel documentation for the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,534&amp;text=vpbroadcastq"><code>vpbroadcastq</code></a> and <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,534,5724&amp;text=vpxor"><code>vpxor</code></a> instructions we find that these functions are SIMD instructions and that <code>gcc</code> has auto-vectorised the naive implementation.</p>
-<p>The naive implementation was in fact elaborately auto-vectorised a 14 line C function to a 152 lines of assembly code.</p>
-<p>If we deny <code>gcc</code> the freedom to auto-vectorise the code with the <code>-fno-tree-vectorize</code> flag we <code>71</code> lines of assembly instead and get worse results:</p>
+<p>The naive implementation was in fact elaborately auto-vectorised that a 14 line C function became 152 lines of assembly code.</p>
+<p>If we deny <code>gcc</code> the freedom to auto-vectorise the code with the <code>-fno-tree-vectorize</code> flag we get <code>71</code> lines of assembly instead and suffer worse results by far:</p>
 <pre class="text"><code>./naive.out           0m4.659s
 ./broadword.out       0m2.960s
 ./simd.out            0m1.703s
 wc -l                 0m5.458s</code></pre>
 <p>GHC currently does not perform any auto-vectorisation, so I’d expected the naive version when written in Haskell would perform no better than the naive C implementation without auto-vectorsation.</p>
 <h1 id="closing-remarks">Closing remarks</h1>
-<p>The benchmarks make a compelling case for using SIMD instructions directly where ever possible and broadword where the target CPU architecture does not support the SIMD instructions we need.</p>
+<p>The benchmarks make a compelling case for using SIMD instructions where ever possible and broadword where the target CPU architecture does not support the SIMD instructions we need.</p>
 <p>Unfortunately, GHC does not have native support for the SIMD instructions we need.</p>
 <p>In a future post I’ll look at using these SIMD from GHC using Foreign Function Interface (FFI) and addressing some of the challenges of using SIMD with Haskell’s lazy IO.</p>
   </section>
