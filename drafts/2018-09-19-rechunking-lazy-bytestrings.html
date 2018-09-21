@@ -34,25 +34,25 @@
   </section>
   <section>
     <p>In the <a href="../posts/2018-09-03-simd-with-linecount.html">previous post</a>, we’ve established that we want to use SIMD for speed.</p>
-<p>We’d also like our CSV parser stream the data to avoid excessive memory usage so we’re going to have to read my CSV input in chunks.</p>
+<p>We’d also like our CSV parser stream the data to avoid excessive memory usage so we’re going to have to read the CSV input in chunks.</p>
 <p>Given that SIMD registers are currently up to 512-bits in size, the chunk size will need to be multiples of 64-bytes to work with arbitrary SIMD instructions.</p>
-<p>This post will look at chunk size Haskell’s library actually gives us explore some ways we can get the required chunk size we need.</p>
+<p>This post will look at the chunk size Haskell’s <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library actually gives us and explore some ways we can get the required chunk size we need.</p>
 <h1 id="lazy-io">Lazy IO</h1>
 <p>Due to laziness, streaming in Haskell is straightforward. The following function lazily reads the entire contents of the input file and writes them into the output file.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span></a>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">LBS</span></a>
 <a class="sourceLine" id="cb1-2" data-line-number="2"></a>
 <a class="sourceLine" id="cb1-3" data-line-number="3"><span class="ot">cat ::</span> FilePath <span class="ot">-&gt;</span> FilePath <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</a>
 <a class="sourceLine" id="cb1-4" data-line-number="4">cat inputFile outputFile <span class="fu">=</span> <span class="kw">do</span></a>
 <a class="sourceLine" id="cb1-5" data-line-number="5">  bs <span class="ot">&lt;-</span> LBS.readFile inputFile</a>
 <a class="sourceLine" id="cb1-6" data-line-number="6">  LBS.writeFile outputFile bs</a></code></pre></div>
-<p>For efficiency, the lazy bytestring is actually very similar in structure to a list of strict bytestrings. Each bytestring represents a chunk of the input file contents with a carefully chosen chunk size to maximise performance.</p>
+<p>For efficiency, the lazy bytestring is actually very similar in structure to a list of strict bytestrings. Each bytestring represents a chunk of the input file contents with a <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.Internal.html#defaultChunkSize">carefully chosen chunk size</a> to maximise performance.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">defaultChunkSize ::</span> <span class="dt">Int</span></a>
 <a class="sourceLine" id="cb2-2" data-line-number="2">defaultChunkSize <span class="fu">=</span> <span class="dv">32</span> <span class="fu">*</span> k <span class="fu">-</span> chunkOverhead</a>
 <a class="sourceLine" id="cb2-3" data-line-number="3">   <span class="kw">where</span> k <span class="fu">=</span> <span class="dv">1024</span></a>
 <a class="sourceLine" id="cb2-4" data-line-number="4"></a>
 <a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
 <a class="sourceLine" id="cb2-6" data-line-number="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (undefined<span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
-<p>Evidence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their sizes.</p>
+<p>Evideence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their size5.</p>
 <p>The following command reads a file with lazy IO and counts the frequency of each chunk size:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
 <a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
@@ -154,7 +154,7 @@
 <p><code>j</code>, <code>n</code>, and <code>o</code> however do require copy because their bytes come from multipe source chunks.</p>
 <p>The need for copying is denoted by using the <code>=</code> characters.</p>
 <p>The above scheme may minimise the amount of byte copying, but it is still fairly expensive because many bytestring objects are created.</p>
-<p>To reduce the number of bytestring objects, another approach is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegment"><code>resegment</code></a> the data instead.</p>
+<p>4o reduce the number of bytestring objects, another approach is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegment"><code>resegment</code></a> the data instead.</p>
 <p>This process is shown below:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
 |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|k|</code></pre>
@@ -163,59 +163,63 @@
 <p>For doing our SIMD operations, we’d like all the chunks to be a multiple of the chunk size so <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegmentPadded"><code>resegmentPadded</code></a> will pad the last chunk to the chunk size with 0 bytes:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
 |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
+<p>For clarify, I provide the diagrams for each strategy side-by-side:</p>
+<pre class="text"><code>rechunk:          |-d--|-e--|-f--|-g--|-h--|-i--|=j==|-k--|-l--|-m--|=n==|=o==|-p--|-q--|-r--|-s--|-t--|u|
+resegment:        |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|k|
+resegmentPadded:  |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
 <p>Some benchmarking will give us some idea of how much rechunking and resegmenting costs us:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb8-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">$ <span class="bu">cd</span> hw-simd-cli</a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">$ <span class="ex">./project.sh</span> install</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb8-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb8-6" data-line-number="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb8-7" data-line-number="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
-<a class="sourceLine" id="cb8-8" data-line-number="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb8-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
+<a class="sourceLine" id="cb9-2" data-line-number="2">$ <span class="bu">cd</span> hw-simd-cli</a>
+<a class="sourceLine" id="cb9-3" data-line-number="3">$ <span class="ex">./project.sh</span> install</a>
+<a class="sourceLine" id="cb9-4" data-line-number="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb9-6" data-line-number="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
+<a class="sourceLine" id="cb9-8" data-line-number="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
 <p>The results show the cost of using small chunks is drastic compared to the much more modest overhead of resegmenting.</p>
 <h1 id="pre-chunked-reading">Pre-chunked reading</h1>
 <p>An alternative to resegmenting the lazy bytestring is to read the bytes with the desired segment size in the first place.</p>
-<p>The <code>hGetContents</code> function from the <code>bytestring</code> library is implemented in terms of <code>hGetContentsN</code> like this:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
-<a class="sourceLine" id="cb9-2" data-line-number="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
-<a class="sourceLine" id="cb9-3" data-line-number="3">  <span class="kw">where</span></a>
-<a class="sourceLine" id="cb9-4" data-line-number="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb9-6" data-line-number="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb9-7" data-line-number="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
-<a class="sourceLine" id="cb9-8" data-line-number="8">        <span class="kw">if</span> S.null c</a>
-<a class="sourceLine" id="cb9-9" data-line-number="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">Empty</span></a>
-<a class="sourceLine" id="cb9-10" data-line-number="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
-<a class="sourceLine" id="cb9-11" data-line-number="11">                  return (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
-<p>A different version of the function which guarantees that every chunk is the same size (except the last) can be implemented by using <code>hGetBuf</code> and <code>createAndTrim</code> instead of <code>hGetSome</code> and keeping everything else the same:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
-<a class="sourceLine" id="cb10-2" data-line-number="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
-<a class="sourceLine" id="cb10-3" data-line-number="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb10-4" data-line-number="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb10-5" data-line-number="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
-<a class="sourceLine" id="cb10-6" data-line-number="6">            <span class="kw">if</span> BS.null c</a>
-<a class="sourceLine" id="cb10-7" data-line-number="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">LBS.Empty</span></a>
-<a class="sourceLine" id="cb10-8" data-line-number="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
+<p>The <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:hGetContents"><code>hGetContents</code></a> function from the <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library is implemented in terms of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.html#hGetContentsN"><code>hGetContentsN</code></a> like this:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
+<a class="sourceLine" id="cb10-2" data-line-number="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
+<a class="sourceLine" id="cb10-3" data-line-number="3">  <span class="kw">where</span></a>
+<a class="sourceLine" id="cb10-4" data-line-number="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb10-5" data-line-number="5"></a>
+<a class="sourceLine" id="cb10-6" data-line-number="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb10-7" data-line-number="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
+<a class="sourceLine" id="cb10-8" data-line-number="8">        <span class="kw">if</span> S.null c</a>
+<a class="sourceLine" id="cb10-9" data-line-number="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">Empty</span></a>
+<a class="sourceLine" id="cb10-10" data-line-number="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
+<a class="sourceLine" id="cb10-11" data-line-number="11">                  return (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
+<p><a href="http://hackage.haskell.org/package/hw-prim-0.6.2.17/docs/HaskellWorks-Data-ByteString-Lazy.html#v:hGetContentsChunkedBy"><code>hGetContentsChunkedBy</code></a>, a different version of the function which guarantees that every chunk is the same size (except the last) can be implemented by using <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/System-IO.html#v:hGetBuf"><code>hGetBuf</code></a> and <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Internal.html#createAndTrim"><code>createAndTrim</code></a> instead of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.html#hGetSome"><code>hGetSome</code></a> and keeping everything else the same:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
+<a class="sourceLine" id="cb11-2" data-line-number="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
+<a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb11-4" data-line-number="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb11-5" data-line-number="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
+<a class="sourceLine" id="cb11-6" data-line-number="6">            <span class="kw">if</span> BS.null c</a>
+<a class="sourceLine" id="cb11-7" data-line-number="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">LBS.Empty</span></a>
+<a class="sourceLine" id="cb11-8" data-line-number="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
 <p>Benchmarking this shows the performance is comparable to resegmenting.</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb11-1" data-line-number="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb11-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb11-3" data-line-number="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
-<a class="sourceLine" id="cb11-4" data-line-number="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
-<a class="sourceLine" id="cb11-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb11-6" data-line-number="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb11-7" data-line-number="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb11-8" data-line-number="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
-<a class="sourceLine" id="cb11-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb11-10" data-line-number="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb11-11" data-line-number="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
-<a class="sourceLine" id="cb11-12" data-line-number="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb11-13" data-line-number="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb11-14" data-line-number="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb11-15" data-line-number="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb11-16" data-line-number="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
-<a class="sourceLine" id="cb11-17" data-line-number="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
-<a class="sourceLine" id="cb11-18" data-line-number="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb12-1" data-line-number="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-3" data-line-number="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
+<a class="sourceLine" id="cb12-4" data-line-number="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
+<a class="sourceLine" id="cb12-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-6" data-line-number="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-7" data-line-number="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-8" data-line-number="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
+<a class="sourceLine" id="cb12-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-10" data-line-number="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-11" data-line-number="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
+<a class="sourceLine" id="cb12-12" data-line-number="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-13" data-line-number="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-14" data-line-number="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-15" data-line-number="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-16" data-line-number="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
+<a class="sourceLine" id="cb12-17" data-line-number="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
+<a class="sourceLine" id="cb12-18" data-line-number="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
 <p>This is likely because the chunks returned by <code>hGetContents</code> were already large enough that the extra effort to resegment the lazy bytestring is negligible.</p>
 <h1 id="closing-remarks">Closing Remarks</h1>
 <p>This post looked at how we can resegment our lazy bytestring to make the chunk sizes compatible with SIMD instructions at a reasonable cost.</p>
