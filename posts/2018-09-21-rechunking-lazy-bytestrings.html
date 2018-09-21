@@ -27,7 +27,7 @@
       <h1>Rechunking lazy bytestrings</h1>
       <article>
   <section class="header">
-    Posted on September 19, 2018
+    Posted on September 21, 2018
     
       by John Ky
     
@@ -163,7 +163,7 @@
 <p>For doing our SIMD operations, we’d like all the chunks to be a multiple of the chunk size so <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegmentPadded"><code>resegmentPadded</code></a> will pad the last chunk to the chunk size with 0 bytes:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
 |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
-<p>For clarify, I provide the diagrams for each strategy side-by-side:</p>
+<p>For clarity, I provide the diagrams for each strategy side-by-side:</p>
 <pre class="text"><code>rechunk:          |-d--|-e--|-f--|-g--|-h--|-i--|=j==|-k--|-l--|-m--|=n==|=o==|-p--|-q--|-r--|-s--|-t--|u|
 resegment:        |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|k|
 resegmentPadded:  |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
