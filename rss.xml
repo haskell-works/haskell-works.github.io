@@ -30,7 +30,7 @@
 <a class="sourceLine" id="cb2-4" data-line-number="4"></a>
 <a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
 <a class="sourceLine" id="cb2-6" data-line-number="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (undefined<span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
-<p>Evideence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their size5.</p>
+<p>Evidence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their size.</p>
 <p>The following command reads a file with lazy IO and counts the frequency of each chunk size:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
 <a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
@@ -127,24 +127,25 @@
 <h1 id="rechunking-resegmenting">Rechunking &amp; resegmenting</h1>
 <p>One strategy we could use to ensure our bytestrings are always chunked to 64-byte multiples is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:rechunk"><code>rechunk</code></a> the bytestrings into equal chunk sizes like the following:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
-|-d--|-e--|-f--|-g--|-h--|-i--|=j==|-k--|-l--|-m--|=n==|=o==|-p--|-q--|-r--|-s--|-t--|u|</code></pre>
-<p>In the above, the chunks <code>d</code>-<code>i</code>, <code>k</code>-<code>m</code>, and <code>p</code>-<code>u</code> don’t require any byte copying because they are strict substrings of the chunks <code>a</code>, <code>b</code> and <code>d</code> respectively.</p>
-<p><code>j</code>, <code>n</code>, and <code>o</code> however do require copy because their bytes come from multipe source chunks.</p>
+|-e--|-f--|-g--|-h--|-i--|-j--|=k==|-l--|-m--|-n--|=o==|=p==|-q--|-r--|-s--|-t--|-u--|v|</code></pre>
+<p>In the above, the chunks <code>e</code>-<code>j</code>, <code>l</code>-<code>n</code>, and <code>q</code>-<code>v</code> don’t require any byte copying because they are strict substrings of the chunks <code>a</code>, <code>b</code> and <code>d</code> respectively.</p>
+<p><code>k</code>, <code>o</code>, and <code>p</code> however do require copying because their bytes come from multipe source chunks.</p>
 <p>The need for copying is denoted by using the <code>=</code> characters.</p>
 <p>The above scheme may minimise the amount of byte copying, but it is still fairly expensive because many bytestring objects are created.</p>
-<p>4o reduce the number of bytestring objects, another approach is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegment"><code>resegment</code></a> the data instead.</p>
+<p>To reduce the number of bytestring objects, another approach is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegment"><code>resegment</code></a> the data instead.</p>
 <p>This process is shown below:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
-|--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|k|</code></pre>
-<p>Here, chunks <code>v</code>, <code>w</code> and <code>x</code> are created with a size that is the largest multiple of the chunk size allowed by the source chunk that is equivalent to the concatenation of the <code>d</code>-<code>i</code>, <code>k</code>-<code>m</code>, and <code>p</code>-<code>u</code> chunks in the <code>rechunk</code> example.</p>
-<p>This gets us to the point where all except the last chunk is a multiple of the chunk size.</p>
-<p>For doing our SIMD operations, we’d like all the chunks to be a multiple of the chunk size so <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegmentPadded"><code>resegmentPadded</code></a> will pad the last chunk to the chunk size with 0 bytes:</p>
+|--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|v|</code></pre>
+<p>Here, segments <code>v</code>, <code>w</code> and <code>y</code> are substrings of <code>a</code>, <code>b</code> and <code>d</code> respectively with a size that is the largest multiple of the chunk size allowed by the source segments. The segments are equivalent to the concatenation of the <code>e</code>-<code>j</code>, <code>l</code>-<code>n</code>, and <code>q</code>-<code>v</code> chunks in the <code>rechunk</code> example.</p>
+<p>This gets us to the point where all except the last segment is a multiple of the chunk size.</p>
+<p>For doing our SIMD operations, we’d like all the segments to be a multiple of the chunk size so <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:resegmentPadded"><code>resegmentPadded</code></a> will pad the last segment to the chunk size with 0 bytes:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
-|--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
+|--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|=z==|</code></pre>
+<p>This padded segment denoted by <code>z</code> will require byte copying from <code>d</code> and zero-filling the remaining buffer up to the chunk size.</p>
 <p>For clarity, I provide the diagrams for each strategy side-by-side:</p>
-<pre class="text"><code>rechunk:          |-d--|-e--|-f--|-g--|-h--|-i--|=j==|-k--|-l--|-m--|=n==|=o==|-p--|-q--|-r--|-s--|-t--|u|
-resegment:        |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|k|
-resegmentPadded:  |--------------v--------------|=j==|------w-------|=n==|=o==|-----------x------------|=y==|</code></pre>
+<pre class="text"><code>rechunk:          |-e--|-f--|-g--|-h--|-i--|-j--|=k==|-l--|-m--|-n--|=o==|=p==|-q--|-r--|-s--|-t--|-u--|v|
+resegment:        |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|v|
+resegmentPadded:  |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|=z==|</code></pre>
 <p>Some benchmarking will give us some idea of how much rechunking and resegmenting costs us:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
 <a class="sourceLine" id="cb9-2" data-line-number="2">$ <span class="bu">cd</span> hw-simd-cli</a>
