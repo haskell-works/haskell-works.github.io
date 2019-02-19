@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Haskell Works Blog - Adding bit vectors - Building Vectors with State</title>
+    <link rel="stylesheet" href="../css/default.css" />
+    <link rel="alternate" type="application/atom+xml" title="Atom - Haskell Works Blog" href="../atom.xml" />
+    <link rel="alternate" type="application/rss+xml" title="RSS - Haskell Works Blog" href="../rss.xml" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <a href="../">Haskell Works Blog</a>
+      </div>
+      <nav>
+        <a href="../">Home</a>
+        <a href="../about.html">About</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../archive.html">Archive</a>
+        <a href="../drafts.html">Drafts</a>
+      </nav>
+    </header>
+
+    <main role="main">
+      <h1>Adding bit vectors - Building Vectors with State</h1>
+      <article>
+  <section class="header">
+    Posted on February  4, 2019
+    
+      by John Ky
+    
+  </section>
+  <section>
+    <h1 id="adding-bit-vectors">Adding bit-vectors</h1>
+<p>Now we can use our <code>sumCarry</code> function to implement bit-vector addition by</p>
+<p>For example we show how to add two bit-vectors <code>a</code> and <code>b</code> in the following diagram:</p>
+<pre class="text"><code>a = 128 │ 00010001   00011111   10001000   00000000
+b = 128 │ 00010001   11111000   00011111   11000000
+carry   │ 
+a + b   │ </code></pre>
+<p>First initialise the carry to <code>0x0</code>:</p>
+<pre class="text"><code>a = 128 │ 00010001   00011111   10001000   00000000
+b = 128 │ 00010001   11111000   00011111   11000000
+carry   │ 00000000
+a + b   │ </code></pre>
+<p>Then perform the addition of the first word and compute the next carry with our <code>sumCarry</code> function:</p>
+<pre class="text"><code>a = 128 │ 00010001─┐ 00011111   10001000   00000000
+b = 128 │ 00010001─┤ 11111000   00011111   11000000
+carry   │ 00000000─┴─10000000
+a + b   │ 00001000</code></pre>
+<p>Notice the <code>1</code> bit in the next carry.</p>
+<p>We can then repeat this for the next set of words:</p>
+<pre class="text"><code>a = 128 │ 00010001─┐ 00011111─┐ 10001000   00000000
+b = 128 │ 00010001─┤ 11111000─┤ 00011111   11000000
+carry   │ 00000000─┴─10000000─┴─10000000
+a + b   │ 00001000   00011000</code></pre>
+<p>Above we can see the carry bit trigger a series of bit flips from the beginning of the word.</p>
+<p>We continue again:</p>
+<pre class="text"><code>a = 128 │ 00010001─┐ 00011111─┐ 10001000─┐ 00000000
+b = 128 │ 00010001─┤ 11111000─┤ 00011111─┤ 11000000
+carry   │ 00000000─┴─10000000─┴─10000000─┴─10000000
+a + b   │ 00001000   00011000   01010000</code></pre>
+<p>And again:</p>
+<pre class="text"><code>a = 128 │ 00010001─┐ 00011111─┐ 10001000─┐ 00000000
+b = 128 │ 00010001─┤ 11111000─┤ 00011111─┤ 11000000
+carry   │ 00000000─┴─10000000─┴─10000000─┴─10000000
+a + b   │ 00001000   00011000   01010000   00100000</code></pre>
+<p>Until we’re done.</p>
+<p>The code that implements this follows:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1"><span class="ot">sumVector ::</span> <span class="dt">DVS.Vector</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">DVS.Vector</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">DVS.Vector</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb7-2" title="2">sumVector u v <span class="fu">=</span> DVS.create <span class="fu">$</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb7-3" title="3">  w <span class="ot">&lt;-</span> DVSM.new len</a>
+<a class="sourceLine" id="cb7-4" title="4">  go w <span class="dv">0</span> <span class="dt">False</span></a>
+<a class="sourceLine" id="cb7-5" title="5">  <span class="fu">return</span> w</a>
+<a class="sourceLine" id="cb7-6" title="6">  <span class="kw">where</span> len <span class="fu">=</span> <span class="fu">min</span> (DVS.length u) (DVS.length v)</a>
+<a class="sourceLine" id="cb7-7" title="7"><span class="ot">        go ::</span> <span class="dt">DVSM.MVector</span> s <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span> <span class="ot">-&gt;</span> <span class="dt">ST</span> s <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb7-8" title="8">        go w i c <span class="fu">=</span> <span class="kw">if</span> i <span class="fu">&lt;</span> len</a>
+<a class="sourceLine" id="cb7-9" title="9">          <span class="kw">then</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb7-10" title="10">            <span class="kw">let</span> (t, nc) <span class="fu">=</span> sumCarry (DVS.unsafeIndex u i) (DVS.unsafeIndex v i) c</a>
+<a class="sourceLine" id="cb7-11" title="11">            DVSM.unsafeWrite w i t</a>
+<a class="sourceLine" id="cb7-12" title="12">            go w (i <span class="fu">+</span> <span class="dv">1</span>) nc</a>
+<a class="sourceLine" id="cb7-13" title="13">          <span class="kw">else</span> <span class="fu">return</span> <span class="dv">1</span></a></code></pre></div>
+<p>The <code>sumVector</code> function takes the two bit-vectors to add and an initial carry,</p>
+  </section>
+</article>
+
+    </main>
+
+    <footer>
+      Site proudly generated by
+      <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+    </footer>
+  </body>
+</html>

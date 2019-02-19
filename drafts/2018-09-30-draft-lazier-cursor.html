@@ -33,37 +33,37 @@
     
   </section>
   <section>
-    <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb1-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:56 [ 128MiB/s]</a>
-<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  114.39s user 15.47s system 229% cpu 56.466 total</a>
-<a class="sourceLine" id="cb1-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="ex">7.08GiB</span> 0:00:46 [ 156MiB/s]</a>
-<a class="sourceLine" id="cb1-7" data-line-number="7"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  85.16s user 12.78s system 211% cpu 46.391 total</a>
-<a class="sourceLine" id="cb1-8" data-line-number="8"></a>
-<a class="sourceLine" id="cb1-9" data-line-number="9">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-10" data-line-number="10"><span class="ex">7.08GiB</span> 0:00:41 [ 173MiB/s]</a>
-<a class="sourceLine" id="cb1-11" data-line-number="11"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  83.08s user 12.41s system 227% cpu 41.919 total</a>
-<a class="sourceLine" id="cb1-12" data-line-number="12"></a>
-<a class="sourceLine" id="cb1-13" data-line-number="13">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-14" data-line-number="14"><span class="ex">7.08GiB</span> 0:00:34 [ 207MiB/s]</a>
-<a class="sourceLine" id="cb1-15" data-line-number="15"><span class="ex">hw-dsv</span> query-lazy -k 0 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  71.99s user 11.12s system 237% cpu 34.976 total</a>
-<a class="sourceLine" id="cb1-16" data-line-number="16"></a>
-<a class="sourceLine" id="cb1-17" data-line-number="17">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-18" data-line-number="18"><span class="ex">7.08GiB</span> 0:00:37 [ 192MiB/s]</a>
-<a class="sourceLine" id="cb1-19" data-line-number="19"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  64.48s user 9.89s system 197% cpu 37.636 total</a>
-<a class="sourceLine" id="cb1-20" data-line-number="20"></a>
-<a class="sourceLine" id="cb1-21" data-line-number="21">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-22" data-line-number="22"><span class="ex">7.08GiB</span> 0:00:32 [ 226MiB/s]</a>
-<a class="sourceLine" id="cb1-23" data-line-number="23"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  54.02s user 8.52s system 195% cpu 32.023 total</a>
-<a class="sourceLine" id="cb1-24" data-line-number="24"></a>
-<a class="sourceLine" id="cb1-25" data-line-number="25">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-26" data-line-number="26"><span class="ex">7.08GiB</span> 0:00:27 [ 263MiB/s]</a>
-<a class="sourceLine" id="cb1-27" data-line-number="27"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  48.43s user 7.67s system 203% cpu 27.526 total</a>
-<a class="sourceLine" id="cb1-28" data-line-number="28"></a>
-<a class="sourceLine" id="cb1-29" data-line-number="29">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb1-30" data-line-number="30"><span class="ex">7.08GiB</span> 0:00:22 [ 315MiB/s]</a>
-<a class="sourceLine" id="cb1-31" data-line-number="31"><span class="ex">hw-dsv</span> query-lazy -k 0 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  45.24s user 7.11s system 227% cpu 22.982 total</a></code></pre></div>
+    <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb1-1" title="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="ex">7.08GiB</span> 0:00:56 [ 128MiB/s]</a>
+<a class="sourceLine" id="cb1-3" title="3"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  114.39s user 15.47s system 229% cpu 56.466 total</a>
+<a class="sourceLine" id="cb1-4" title="4"></a>
+<a class="sourceLine" id="cb1-5" title="5">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-6" title="6"><span class="ex">7.08GiB</span> 0:00:46 [ 156MiB/s]</a>
+<a class="sourceLine" id="cb1-7" title="7"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  85.16s user 12.78s system 211% cpu 46.391 total</a>
+<a class="sourceLine" id="cb1-8" title="8"></a>
+<a class="sourceLine" id="cb1-9" title="9">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-10" title="10"><span class="ex">7.08GiB</span> 0:00:41 [ 173MiB/s]</a>
+<a class="sourceLine" id="cb1-11" title="11"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  83.08s user 12.41s system 227% cpu 41.919 total</a>
+<a class="sourceLine" id="cb1-12" title="12"></a>
+<a class="sourceLine" id="cb1-13" title="13">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-14" title="14"><span class="ex">7.08GiB</span> 0:00:34 [ 207MiB/s]</a>
+<a class="sourceLine" id="cb1-15" title="15"><span class="ex">hw-dsv</span> query-lazy -k 0 -d , -e <span class="st">'|'</span> -m slow <span class="op">&gt;</span> /dev/null  71.99s user 11.12s system 237% cpu 34.976 total</a>
+<a class="sourceLine" id="cb1-16" title="16"></a>
+<a class="sourceLine" id="cb1-17" title="17">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-18" title="18"><span class="ex">7.08GiB</span> 0:00:37 [ 192MiB/s]</a>
+<a class="sourceLine" id="cb1-19" title="19"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -k 3 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  64.48s user 9.89s system 197% cpu 37.636 total</a>
+<a class="sourceLine" id="cb1-20" title="20"></a>
+<a class="sourceLine" id="cb1-21" title="21">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-22" title="22"><span class="ex">7.08GiB</span> 0:00:32 [ 226MiB/s]</a>
+<a class="sourceLine" id="cb1-23" title="23"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -k 2 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  54.02s user 8.52s system 195% cpu 32.023 total</a>
+<a class="sourceLine" id="cb1-24" title="24"></a>
+<a class="sourceLine" id="cb1-25" title="25">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-26" title="26"><span class="ex">7.08GiB</span> 0:00:27 [ 263MiB/s]</a>
+<a class="sourceLine" id="cb1-27" title="27"><span class="ex">hw-dsv</span> query-lazy -k 0 -k 1 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  48.43s user 7.67s system 203% cpu 27.526 total</a>
+<a class="sourceLine" id="cb1-28" title="28"></a>
+<a class="sourceLine" id="cb1-29" title="29">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="bu">time</span> hw-dsv query-lazy -k 0 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb1-30" title="30"><span class="ex">7.08GiB</span> 0:00:22 [ 315MiB/s]</a>
+<a class="sourceLine" id="cb1-31" title="31"><span class="ex">hw-dsv</span> query-lazy -k 0 -d , -e <span class="st">'|'</span> <span class="op">&gt;</span> /dev/null  45.24s user 7.11s system 227% cpu 22.982 total</a></code></pre></div>
 <pre class="text"><code>method  columns  Read Rate MB/s  cpu seconds
 slow          4             128       56.466
 slow          3             156       46.391

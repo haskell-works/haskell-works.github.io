@@ -54,12 +54,12 @@
 <p>Broadword programming, sometimes known as SWAR (SIMD Within A Register) uses large registers (in our case 64-bit integer registers) as small parallel computers that can process several pieces of information at a time.</p>
 <p>We will be using this technique to parse our text 8-bytes at a time.</p>
 <p>Before we start we will need the following operations:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
-<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="ot">(.^.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise XOR of two integers</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4"><span class="ot">comp  ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>           <span class="co">-- Compute the bit-wise complement of an integer</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
+<a class="sourceLine" id="cb2-3" title="3"><span class="ot">(.^.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise XOR of two integers</span></a>
+<a class="sourceLine" id="cb2-4" title="4"><span class="ot">comp  ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>           <span class="co">-- Compute the bit-wise complement of an integer</span></a>
+<a class="sourceLine" id="cb2-5" title="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
+<a class="sourceLine" id="cb2-6" title="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
 <p>These operators are pretty standard, but pay close attention to the shift operator, which is the standard right shift operator.</p>
 <p>When the bits are laid out in Little-Endian order the right shift operator will actually shift all the bits <em>to the LEFT</em>.</p>
 <p>In all of the diagrams, bits and bytes will be laid out in Little-Endian because it is the natural layout for succinct data structures but it can be very confusing so bear with me and keep this in mind.</p>
@@ -67,9 +67,9 @@
 <pre class="text"><code>&quot;name&quot;,&quot;age&quot;,&quot;profession&quot;␤John,30,Code Monkey␤Kyle,40,Data Scrubber
 0000000000000000000000000100000000000000000001000000000000000000000</code></pre>
 <p>To do this, we first create a 64-bit word that contains 8 x 8-bit packed integers each initialised to the ASCII code for the newline character. For example, the hexadecimal representation of the newline character is <code>0x0a</code>, so the 64-bit word we are contructing will be:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0101010101010101</span> <span class="fu">*</span> <span class="bn">0x0a</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0101010101010101</span> <span class="fu">*</span> <span class="bn">0x0a</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
 <p>or</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0a0a0a0a0a0a0a0a</span><span class="dt">L</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0a0a0a0a0a0a0a0a</span><span class="dt">L</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
 <p>The next step is to take the text and pad it with zero bytes to the nearest 64-bit boundary. Then take the entire text and cast it to a vector of Little-Endian 64-bit integers.</p>
 <p>This leads to a view of memory shown below indicated by <code>text</code>.</p>
 <pre class="text"><code>             Bytes packed into Little-Endian Word64 integers
@@ -168,13 +168,13 @@ M             10000000 10000000 10000000 10000000 10000000 00000000 10000000 100
 <p>We need some way to extract the first bit of every byte in our word, an operation I will call <code>pext</code> or parallel extract, and then take the complement of the result to get the rank-select bit-string we sought.</p>
 <p>The other rank-select bit-string which marks delimiters and newlines can be derived by applying the same algorithm for the delimiters and the newlines separately then taking the bitwise OR <code>(.|.)</code> of the two resulting bit-strings.</p>
 <p>The resulting code is show below.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb9-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3">                    w4s <span class="fu">=</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0x0f0f0f0f0f0f0f0f</span>) <span class="fu">.|.</span> ((w8s <span class="fu">.&amp;.</span> <span class="bn">0xf0f0f0f0f0f0f0f0</span>) <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4">                    w2s <span class="fu">=</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x0707070707070707</span>) <span class="fu">.|.</span> ((w4s <span class="fu">.&amp;.</span> <span class="bn">0x7070707070707070</span>) <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5">                    w1s <span class="fu">=</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x0303030303030303</span>) <span class="fu">.|.</span> ((w2s <span class="fu">.&amp;.</span> <span class="bn">0x3030303030303030</span>) <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" title="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb9-2" title="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb9-3" title="3">                    w4s <span class="fu">=</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0x0f0f0f0f0f0f0f0f</span>) <span class="fu">.|.</span> ((w8s <span class="fu">.&amp;.</span> <span class="bn">0xf0f0f0f0f0f0f0f0</span>) <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb9-4" title="4">                    w2s <span class="fu">=</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x0707070707070707</span>) <span class="fu">.|.</span> ((w4s <span class="fu">.&amp;.</span> <span class="bn">0x7070707070707070</span>) <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb9-5" title="5">                    w1s <span class="fu">=</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x0303030303030303</span>) <span class="fu">.|.</span> ((w2s <span class="fu">.&amp;.</span> <span class="bn">0x3030303030303030</span>) <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb9-6" title="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb9-7" title="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>All up we’ve used the following operations:</p>
 <ul>
 <li><code>(.&amp;.)</code> x 6</li>
@@ -219,13 +219,13 @@ M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xx
 <p>As a result of tracing the don’t care or <code>x</code> bits backwards through the computation, I was able to remove six masks and six AND <code>(.&amp;.)</code> operations.</p>
 <p>I left the rows <code>A</code>, <code>C</code>, <code>E</code>, <code>G</code>, <code>J</code>, and <code>L</code> in as non-operations (<code>noop</code>) because I wanted to annotate the additional bits I don’t care beyond those I already don’t care about in the original value.</p>
 <p>The resulting code is much simpler and faster:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb11-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb11-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb11-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb11-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
-<a class="sourceLine" id="cb11-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" title="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb11-2" title="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb11-3" title="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb11-4" title="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb11-5" title="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb11-6" title="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb11-7" title="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>The optimisations meas we now use only these operations:</p>
 <ul>
 <li><code>(.|.)</code> x 3</li>

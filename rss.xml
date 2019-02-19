@@ -17,113 +17,113 @@
 <p>This post will look at the chunk size Haskell’s <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library actually gives us and explore some ways we can get the required chunk size we need.</p>
 <h1 id="lazy-io">Lazy IO</h1>
 <p>Due to laziness, streaming in Haskell is straightforward. The following function lazily reads the entire contents of the input file and writes them into the output file.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">LBS</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"></a>
-<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="ot">cat ::</span> FilePath <span class="ot">-&gt;</span> FilePath <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</a>
-<a class="sourceLine" id="cb1-4" data-line-number="4">cat inputFile outputFile <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">  bs <span class="ot">&lt;-</span> LBS.readFile inputFile</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6">  LBS.writeFile outputFile bs</a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">LBS</span></a>
+<a class="sourceLine" id="cb1-2" title="2"></a>
+<a class="sourceLine" id="cb1-3" title="3"><span class="ot">cat ::</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</a>
+<a class="sourceLine" id="cb1-4" title="4">cat inputFile outputFile <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb1-5" title="5">  bs <span class="ot">&lt;-</span> LBS.readFile inputFile</a>
+<a class="sourceLine" id="cb1-6" title="6">  LBS.writeFile outputFile bs</a></code></pre></div>
 <p>For efficiency, the lazy bytestring is actually very similar in structure to a list of strict bytestrings. Each bytestring represents a chunk of the input file contents with a <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.Internal.html#defaultChunkSize">carefully chosen chunk size</a> to maximise performance.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">defaultChunkSize ::</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2">defaultChunkSize <span class="fu">=</span> <span class="dv">32</span> <span class="fu">*</span> k <span class="fu">-</span> chunkOverhead</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">   <span class="kw">where</span> k <span class="fu">=</span> <span class="dv">1024</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (undefined<span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="ot">defaultChunkSize ::</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-2" title="2">defaultChunkSize <span class="fu">=</span> <span class="dv">32</span> <span class="fu">*</span> k <span class="fu">-</span> chunkOverhead</a>
+<a class="sourceLine" id="cb2-3" title="3">   <span class="kw">where</span> k <span class="fu">=</span> <span class="dv">1024</span></a>
+<a class="sourceLine" id="cb2-4" title="4"></a>
+<a class="sourceLine" id="cb2-5" title="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-6" title="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (<span class="fu">undefined</span><span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
 <p>Evidence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their size.</p>
 <p>The following command reads a file with lazy IO and counts the frequency of each chunk size:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
-<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
-<a class="sourceLine" id="cb3-3" data-line-number="3"><span class="fu">$</span> git checkout 2a9dadf9291cad68f2b05917619861eead3c31dd</a>
-<a class="sourceLine" id="cb3-4" data-line-number="4"><span class="fu">$</span> <span class="fu">./</span>project<span class="fu">.</span>sh install</a>
-<a class="sourceLine" id="cb3-5" data-line-number="5"><span class="fu">$</span> hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
-<a class="sourceLine" id="cb3-6" data-line-number="6"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">232230</span></a>
-<a class="sourceLine" id="cb3-7" data-line-number="7"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
-<a class="sourceLine" id="cb3-8" data-line-number="8"><span class="dv">2350</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb3-9" data-line-number="9"><span class="dv">32752</span>,<span class="dv">232229</span></a></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" title="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
+<a class="sourceLine" id="cb3-2" title="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
+<a class="sourceLine" id="cb3-3" title="3"><span class="fu">$</span> git checkout 2a9dadf9291cad68f2b05917619861eead3c31dd</a>
+<a class="sourceLine" id="cb3-4" title="4"><span class="fu">$</span> <span class="fu">./</span>project<span class="fu">.</span>sh install</a>
+<a class="sourceLine" id="cb3-5" title="5"><span class="fu">$</span> hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
+<a class="sourceLine" id="cb3-6" title="6"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">232230</span></a>
+<a class="sourceLine" id="cb3-7" title="7"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
+<a class="sourceLine" id="cb3-8" title="8"><span class="dv">2350</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb3-9" title="9"><span class="dv">32752</span>,<span class="dv">232229</span></a></code></pre></div>
 <p>Unfortunately for us, this chunk size is no good for using SIMD instructions that can use registers up to 512-bits or 64-bytes.</p>
 <p>More interestingly, even had the <code>defaultChunkSize</code> been set to a more convenient size of being a multiple of 64-bytes, a 64-byte multiple chunk size is not guaranteed, as shown in this example where we read from standard input instead:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="fu">$</span> cat <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">|</span> time hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">-</span> <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
-<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">279332</span></a>
-<a class="sourceLine" id="cb4-3" data-line-number="3"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4"><span class="dv">16</span>,<span class="dv">5780</span></a>
-<a class="sourceLine" id="cb4-5" data-line-number="5"><span class="dv">32</span>,<span class="dv">5882</span></a>
-<a class="sourceLine" id="cb4-6" data-line-number="6"><span class="dv">48</span>,<span class="dv">1793</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7"><span class="dv">64</span>,<span class="dv">739</span></a>
-<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="dv">80</span>,<span class="dv">400</span></a>
-<a class="sourceLine" id="cb4-9" data-line-number="9"><span class="dv">96</span>,<span class="dv">239</span></a>
-<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="dv">112</span>,<span class="dv">130</span></a>
-<a class="sourceLine" id="cb4-11" data-line-number="11"><span class="dv">128</span>,<span class="dv">77</span></a>
-<a class="sourceLine" id="cb4-12" data-line-number="12"><span class="dv">144</span>,<span class="dv">55</span></a>
-<a class="sourceLine" id="cb4-13" data-line-number="13"><span class="dv">160</span>,<span class="dv">50</span></a>
-<a class="sourceLine" id="cb4-14" data-line-number="14"><span class="dv">176</span>,<span class="dv">32</span></a>
-<a class="sourceLine" id="cb4-15" data-line-number="15"><span class="dv">192</span>,<span class="dv">20</span></a>
-<a class="sourceLine" id="cb4-16" data-line-number="16"><span class="dv">208</span>,<span class="dv">16</span></a>
-<a class="sourceLine" id="cb4-17" data-line-number="17"><span class="dv">224</span>,<span class="dv">12</span></a>
-<a class="sourceLine" id="cb4-18" data-line-number="18"><span class="dv">240</span>,<span class="dv">5</span></a>
-<a class="sourceLine" id="cb4-19" data-line-number="19"><span class="dv">256</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-20" data-line-number="20"><span class="dv">272</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-21" data-line-number="21"><span class="dv">288</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-22" data-line-number="22"><span class="dv">304</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-23" data-line-number="23"><span class="dv">320</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-24" data-line-number="24"><span class="dv">336</span>,<span class="dv">5</span></a>
-<a class="sourceLine" id="cb4-25" data-line-number="25"><span class="dv">368</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-26" data-line-number="26"><span class="dv">384</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-27" data-line-number="27"><span class="dv">400</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-28" data-line-number="28"><span class="dv">416</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-29" data-line-number="29"><span class="dv">432</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-30" data-line-number="30"><span class="dv">448</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-31" data-line-number="31"><span class="dv">464</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-32" data-line-number="32"><span class="dv">480</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-33" data-line-number="33"><span class="dv">496</span>,<span class="dv">4</span></a>
-<a class="sourceLine" id="cb4-34" data-line-number="34"><span class="dv">512</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-35" data-line-number="35"><span class="dv">544</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-36" data-line-number="36"><span class="dv">560</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-37" data-line-number="37"><span class="dv">592</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-38" data-line-number="38"><span class="dv">640</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-39" data-line-number="39"><span class="dv">704</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-40" data-line-number="40"><span class="dv">1088</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-41" data-line-number="41"><span class="dv">1184</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-42" data-line-number="42"><span class="dv">1280</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-43" data-line-number="43"><span class="dv">16384</span>,<span class="dv">8555</span></a>
-<a class="sourceLine" id="cb4-44" data-line-number="44"><span class="dv">16400</span>,<span class="dv">10125</span></a>
-<a class="sourceLine" id="cb4-45" data-line-number="45"><span class="dv">16416</span>,<span class="dv">23140</span></a>
-<a class="sourceLine" id="cb4-46" data-line-number="46"><span class="dv">16432</span>,<span class="dv">9269</span></a>
-<a class="sourceLine" id="cb4-47" data-line-number="47"><span class="dv">16448</span>,<span class="dv">4729</span></a>
-<a class="sourceLine" id="cb4-48" data-line-number="48"><span class="dv">16464</span>,<span class="dv">2883</span></a>
-<a class="sourceLine" id="cb4-49" data-line-number="49"><span class="dv">16480</span>,<span class="dv">1683</span></a>
-<a class="sourceLine" id="cb4-50" data-line-number="50"><span class="dv">16496</span>,<span class="dv">1005</span></a>
-<a class="sourceLine" id="cb4-51" data-line-number="51"><span class="dv">16512</span>,<span class="dv">669</span></a>
-<a class="sourceLine" id="cb4-52" data-line-number="52"><span class="dv">16528</span>,<span class="dv">433</span></a>
-<a class="sourceLine" id="cb4-53" data-line-number="53"><span class="dv">16544</span>,<span class="dv">303</span></a>
-<a class="sourceLine" id="cb4-54" data-line-number="54"><span class="dv">16560</span>,<span class="dv">202</span></a>
-<a class="sourceLine" id="cb4-55" data-line-number="55"><span class="dv">16576</span>,<span class="dv">160</span></a>
-<a class="sourceLine" id="cb4-56" data-line-number="56"><span class="dv">16592</span>,<span class="dv">95</span></a>
-<a class="sourceLine" id="cb4-57" data-line-number="57"><span class="dv">16608</span>,<span class="dv">86</span></a>
-<a class="sourceLine" id="cb4-58" data-line-number="58"><span class="dv">16624</span>,<span class="dv">60</span></a>
-<a class="sourceLine" id="cb4-59" data-line-number="59"><span class="dv">16640</span>,<span class="dv">53</span></a>
-<a class="sourceLine" id="cb4-60" data-line-number="60"><span class="dv">16656</span>,<span class="dv">36</span></a>
-<a class="sourceLine" id="cb4-61" data-line-number="61"><span class="dv">16672</span>,<span class="dv">43</span></a>
-<a class="sourceLine" id="cb4-62" data-line-number="62"><span class="dv">16688</span>,<span class="dv">29</span></a>
-<a class="sourceLine" id="cb4-63" data-line-number="63"><span class="dv">16704</span>,<span class="dv">38</span></a>
-<a class="sourceLine" id="cb4-64" data-line-number="64"><span class="dv">16720</span>,<span class="dv">23</span></a>
-<a class="sourceLine" id="cb4-65" data-line-number="65"><span class="dv">16736</span>,<span class="dv">13</span></a>
-<a class="sourceLine" id="cb4-66" data-line-number="66"><span class="dv">16752</span>,<span class="dv">13</span></a>
-<a class="sourceLine" id="cb4-67" data-line-number="67"><span class="dv">16768</span>,<span class="dv">20</span></a>
-<a class="sourceLine" id="cb4-68" data-line-number="68"><span class="dv">16784</span>,<span class="dv">15</span></a>
-<a class="sourceLine" id="cb4-69" data-line-number="69"><span class="dv">16800</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-70" data-line-number="70"><span class="dv">16816</span>,<span class="dv">14</span></a>
-<a class="sourceLine" id="cb4-71" data-line-number="71"><span class="dv">16832</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-72" data-line-number="72"><span class="dv">16848</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-73" data-line-number="73"><span class="dv">16864</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-74" data-line-number="74"><span class="dv">16880</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-75" data-line-number="75"><span class="dv">16896</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-76" data-line-number="76"><span class="dv">16912</span>,<span class="dv">4</span></a>
-<a class="sourceLine" id="cb4-77" data-line-number="77"><span class="dv">16928</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-78" data-line-number="78"><span class="dv">16944</span>,<span class="dv">11</span></a>
-<a class="sourceLine" id="cb4-79" data-line-number="79"><span class="dv">16960</span>,<span class="dv">10</span></a>
-<a class="sourceLine" id="cb4-80" data-line-number="80"><span class="dv">16976</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-81" data-line-number="81"><span class="dv">16992</span>,<span class="dv">11</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="fu">$</span> cat <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">|</span> time hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">-</span> <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
+<a class="sourceLine" id="cb4-2" title="2"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">279332</span></a>
+<a class="sourceLine" id="cb4-3" title="3"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
+<a class="sourceLine" id="cb4-4" title="4"><span class="dv">16</span>,<span class="dv">5780</span></a>
+<a class="sourceLine" id="cb4-5" title="5"><span class="dv">32</span>,<span class="dv">5882</span></a>
+<a class="sourceLine" id="cb4-6" title="6"><span class="dv">48</span>,<span class="dv">1793</span></a>
+<a class="sourceLine" id="cb4-7" title="7"><span class="dv">64</span>,<span class="dv">739</span></a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="dv">80</span>,<span class="dv">400</span></a>
+<a class="sourceLine" id="cb4-9" title="9"><span class="dv">96</span>,<span class="dv">239</span></a>
+<a class="sourceLine" id="cb4-10" title="10"><span class="dv">112</span>,<span class="dv">130</span></a>
+<a class="sourceLine" id="cb4-11" title="11"><span class="dv">128</span>,<span class="dv">77</span></a>
+<a class="sourceLine" id="cb4-12" title="12"><span class="dv">144</span>,<span class="dv">55</span></a>
+<a class="sourceLine" id="cb4-13" title="13"><span class="dv">160</span>,<span class="dv">50</span></a>
+<a class="sourceLine" id="cb4-14" title="14"><span class="dv">176</span>,<span class="dv">32</span></a>
+<a class="sourceLine" id="cb4-15" title="15"><span class="dv">192</span>,<span class="dv">20</span></a>
+<a class="sourceLine" id="cb4-16" title="16"><span class="dv">208</span>,<span class="dv">16</span></a>
+<a class="sourceLine" id="cb4-17" title="17"><span class="dv">224</span>,<span class="dv">12</span></a>
+<a class="sourceLine" id="cb4-18" title="18"><span class="dv">240</span>,<span class="dv">5</span></a>
+<a class="sourceLine" id="cb4-19" title="19"><span class="dv">256</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-20" title="20"><span class="dv">272</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-21" title="21"><span class="dv">288</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-22" title="22"><span class="dv">304</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-23" title="23"><span class="dv">320</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-24" title="24"><span class="dv">336</span>,<span class="dv">5</span></a>
+<a class="sourceLine" id="cb4-25" title="25"><span class="dv">368</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-26" title="26"><span class="dv">384</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-27" title="27"><span class="dv">400</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-28" title="28"><span class="dv">416</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-29" title="29"><span class="dv">432</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-30" title="30"><span class="dv">448</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-31" title="31"><span class="dv">464</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-32" title="32"><span class="dv">480</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-33" title="33"><span class="dv">496</span>,<span class="dv">4</span></a>
+<a class="sourceLine" id="cb4-34" title="34"><span class="dv">512</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-35" title="35"><span class="dv">544</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-36" title="36"><span class="dv">560</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-37" title="37"><span class="dv">592</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-38" title="38"><span class="dv">640</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-39" title="39"><span class="dv">704</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-40" title="40"><span class="dv">1088</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-41" title="41"><span class="dv">1184</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-42" title="42"><span class="dv">1280</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-43" title="43"><span class="dv">16384</span>,<span class="dv">8555</span></a>
+<a class="sourceLine" id="cb4-44" title="44"><span class="dv">16400</span>,<span class="dv">10125</span></a>
+<a class="sourceLine" id="cb4-45" title="45"><span class="dv">16416</span>,<span class="dv">23140</span></a>
+<a class="sourceLine" id="cb4-46" title="46"><span class="dv">16432</span>,<span class="dv">9269</span></a>
+<a class="sourceLine" id="cb4-47" title="47"><span class="dv">16448</span>,<span class="dv">4729</span></a>
+<a class="sourceLine" id="cb4-48" title="48"><span class="dv">16464</span>,<span class="dv">2883</span></a>
+<a class="sourceLine" id="cb4-49" title="49"><span class="dv">16480</span>,<span class="dv">1683</span></a>
+<a class="sourceLine" id="cb4-50" title="50"><span class="dv">16496</span>,<span class="dv">1005</span></a>
+<a class="sourceLine" id="cb4-51" title="51"><span class="dv">16512</span>,<span class="dv">669</span></a>
+<a class="sourceLine" id="cb4-52" title="52"><span class="dv">16528</span>,<span class="dv">433</span></a>
+<a class="sourceLine" id="cb4-53" title="53"><span class="dv">16544</span>,<span class="dv">303</span></a>
+<a class="sourceLine" id="cb4-54" title="54"><span class="dv">16560</span>,<span class="dv">202</span></a>
+<a class="sourceLine" id="cb4-55" title="55"><span class="dv">16576</span>,<span class="dv">160</span></a>
+<a class="sourceLine" id="cb4-56" title="56"><span class="dv">16592</span>,<span class="dv">95</span></a>
+<a class="sourceLine" id="cb4-57" title="57"><span class="dv">16608</span>,<span class="dv">86</span></a>
+<a class="sourceLine" id="cb4-58" title="58"><span class="dv">16624</span>,<span class="dv">60</span></a>
+<a class="sourceLine" id="cb4-59" title="59"><span class="dv">16640</span>,<span class="dv">53</span></a>
+<a class="sourceLine" id="cb4-60" title="60"><span class="dv">16656</span>,<span class="dv">36</span></a>
+<a class="sourceLine" id="cb4-61" title="61"><span class="dv">16672</span>,<span class="dv">43</span></a>
+<a class="sourceLine" id="cb4-62" title="62"><span class="dv">16688</span>,<span class="dv">29</span></a>
+<a class="sourceLine" id="cb4-63" title="63"><span class="dv">16704</span>,<span class="dv">38</span></a>
+<a class="sourceLine" id="cb4-64" title="64"><span class="dv">16720</span>,<span class="dv">23</span></a>
+<a class="sourceLine" id="cb4-65" title="65"><span class="dv">16736</span>,<span class="dv">13</span></a>
+<a class="sourceLine" id="cb4-66" title="66"><span class="dv">16752</span>,<span class="dv">13</span></a>
+<a class="sourceLine" id="cb4-67" title="67"><span class="dv">16768</span>,<span class="dv">20</span></a>
+<a class="sourceLine" id="cb4-68" title="68"><span class="dv">16784</span>,<span class="dv">15</span></a>
+<a class="sourceLine" id="cb4-69" title="69"><span class="dv">16800</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-70" title="70"><span class="dv">16816</span>,<span class="dv">14</span></a>
+<a class="sourceLine" id="cb4-71" title="71"><span class="dv">16832</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-72" title="72"><span class="dv">16848</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-73" title="73"><span class="dv">16864</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-74" title="74"><span class="dv">16880</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-75" title="75"><span class="dv">16896</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-76" title="76"><span class="dv">16912</span>,<span class="dv">4</span></a>
+<a class="sourceLine" id="cb4-77" title="77"><span class="dv">16928</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-78" title="78"><span class="dv">16944</span>,<span class="dv">11</span></a>
+<a class="sourceLine" id="cb4-79" title="79"><span class="dv">16960</span>,<span class="dv">10</span></a>
+<a class="sourceLine" id="cb4-80" title="80"><span class="dv">16976</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-81" title="81"><span class="dv">16992</span>,<span class="dv">11</span></a></code></pre></div>
 <h1 id="rechunking-resegmenting">Rechunking &amp; resegmenting</h1>
 <p>One strategy we could use to ensure our bytestrings are always chunked to 64-byte multiples is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:rechunk"><code>rechunk</code></a> the bytestrings into equal chunk sizes like the following:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
@@ -147,58 +147,58 @@
 resegment:        |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|v|
 resegmentPadded:  |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|=z==|</code></pre>
 <p>Some benchmarking will give us some idea of how much rechunking and resegmenting costs us:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2">$ <span class="bu">cd</span> hw-simd-cli</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3">$ <span class="ex">./project.sh</span> install</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
-<a class="sourceLine" id="cb9-8" data-line-number="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" title="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
+<a class="sourceLine" id="cb9-2" title="2">$ <span class="bu">cd</span> hw-simd-cli</a>
+<a class="sourceLine" id="cb9-3" title="3">$ <span class="ex">./project.sh</span> install</a>
+<a class="sourceLine" id="cb9-4" title="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-5" title="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb9-6" title="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-7" title="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
+<a class="sourceLine" id="cb9-8" title="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-9" title="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
 <p>The results show the cost of using small chunks is drastic compared to the much more modest overhead of resegmenting.</p>
 <h1 id="pre-chunked-reading">Pre-chunked reading</h1>
 <p>An alternative to resegmenting the lazy bytestring is to read the bytes with the desired segment size in the first place.</p>
 <p>The <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:hGetContents"><code>hGetContents</code></a> function from the <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library is implemented in terms of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.html#hGetContentsN"><code>hGetContentsN</code></a> like this:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
-<a class="sourceLine" id="cb10-2" data-line-number="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
-<a class="sourceLine" id="cb10-3" data-line-number="3">  <span class="kw">where</span></a>
-<a class="sourceLine" id="cb10-4" data-line-number="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb10-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb10-6" data-line-number="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb10-7" data-line-number="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
-<a class="sourceLine" id="cb10-8" data-line-number="8">        <span class="kw">if</span> S.null c</a>
-<a class="sourceLine" id="cb10-9" data-line-number="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">Empty</span></a>
-<a class="sourceLine" id="cb10-10" data-line-number="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
-<a class="sourceLine" id="cb10-11" data-line-number="11">                  return (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" title="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
+<a class="sourceLine" id="cb10-2" title="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
+<a class="sourceLine" id="cb10-3" title="3">  <span class="kw">where</span></a>
+<a class="sourceLine" id="cb10-4" title="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb10-5" title="5"></a>
+<a class="sourceLine" id="cb10-6" title="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb10-7" title="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
+<a class="sourceLine" id="cb10-8" title="8">        <span class="kw">if</span> S.null c</a>
+<a class="sourceLine" id="cb10-9" title="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> <span class="fu">return</span> <span class="dt">Empty</span></a>
+<a class="sourceLine" id="cb10-10" title="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
+<a class="sourceLine" id="cb10-11" title="11">                  <span class="fu">return</span> (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
 <p><a href="http://hackage.haskell.org/package/hw-prim-0.6.2.17/docs/HaskellWorks-Data-ByteString-Lazy.html#v:hGetContentsChunkedBy"><code>hGetContentsChunkedBy</code></a>, a different version of the function which guarantees that every chunk is the same size (except the last) can be implemented by using <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/System-IO.html#v:hGetBuf"><code>hGetBuf</code></a> and <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Internal.html#createAndTrim"><code>createAndTrim</code></a> instead of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.html#hGetSome"><code>hGetSome</code></a> and keeping everything else the same:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
-<a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb11-4" data-line-number="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb11-5" data-line-number="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
-<a class="sourceLine" id="cb11-6" data-line-number="6">            <span class="kw">if</span> BS.null c</a>
-<a class="sourceLine" id="cb11-7" data-line-number="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">LBS.Empty</span></a>
-<a class="sourceLine" id="cb11-8" data-line-number="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" title="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
+<a class="sourceLine" id="cb11-2" title="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
+<a class="sourceLine" id="cb11-3" title="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb11-4" title="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb11-5" title="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
+<a class="sourceLine" id="cb11-6" title="6">            <span class="kw">if</span> BS.null c</a>
+<a class="sourceLine" id="cb11-7" title="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> <span class="fu">return</span> <span class="dt">LBS.Empty</span></a>
+<a class="sourceLine" id="cb11-8" title="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
 <p>Benchmarking this shows the performance is comparable to resegmenting.</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb12-1" data-line-number="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb12-3" data-line-number="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
-<a class="sourceLine" id="cb12-4" data-line-number="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
-<a class="sourceLine" id="cb12-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb12-6" data-line-number="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb12-7" data-line-number="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-8" data-line-number="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
-<a class="sourceLine" id="cb12-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb12-10" data-line-number="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb12-11" data-line-number="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
-<a class="sourceLine" id="cb12-12" data-line-number="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb12-13" data-line-number="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-14" data-line-number="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb12-15" data-line-number="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb12-16" data-line-number="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
-<a class="sourceLine" id="cb12-17" data-line-number="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
-<a class="sourceLine" id="cb12-18" data-line-number="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb12-1" title="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-2" title="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-3" title="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
+<a class="sourceLine" id="cb12-4" title="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
+<a class="sourceLine" id="cb12-5" title="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-6" title="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-7" title="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-8" title="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
+<a class="sourceLine" id="cb12-9" title="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-10" title="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-11" title="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
+<a class="sourceLine" id="cb12-12" title="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-13" title="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-14" title="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-15" title="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-16" title="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
+<a class="sourceLine" id="cb12-17" title="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
+<a class="sourceLine" id="cb12-18" title="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
 <p>This is likely because the chunks returned by <code>hGetContents</code> were already large enough that the extra effort to resegment the lazy bytestring is negligible.</p>
 <h1 id="closing-remarks">Closing Remarks</h1>
 <p>This post looked at how we can resegment our lazy bytestring to make the chunk sizes compatible with SIMD instructions at a reasonable cost.</p>
@@ -220,13 +220,13 @@ resegmentPadded:  |--------------w--------------|=k==|------x-------|=o==|=p==|-
 <p>Here, I mark every bit that corresponds to a newline character at the corresponding position in the text.</p>
 <p>From this bit-string, we can use the <code>popCount</code> operation to add up the number of 1-bits in the string to arrive at the line count for our text.</p>
 <p>Recall that we were able to use broadword programming techniques to do this conversion:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb2-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
-<a class="sourceLine" id="cb2-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb2-2" title="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb2-3" title="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb2-4" title="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb2-5" title="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb2-6" title="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb2-7" title="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>This approach allowed us to process 8 bytes at a time at the cost of three OR <code>(.|.)</code>, three SHIFT <code>(.&gt;.)</code> and one <code>pext</code> operations, all of which are very cheap.</p>
 <p>Whilst, broadword techniques allowed us to do this 8 bytes at a time, SIMD instructions that exist on some generations of CPUs can help us build our rank-select bit-string in a way that lets us process 16, 32 or even 64-bytes at a time.</p>
 <p>On my Macbook, I can run a command to determine what the features my CPU has:</p>
@@ -238,19 +238,19 @@ machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TS
 <p>With 256-bit registers, we’re in a position to improve our parallelism from 8 to 32 bytes at a time.</p>
 <p>Now let’s starting indexing out text.</p>
 <p>In C, we first need to initialise a SIMD register to contain 32 copies of our delimiter byte (in this case newline characters):</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb4-1" data-line-number="1">__m256i ws_newline = broadcast_u8((<span class="dt">uint8_t</span>)<span class="ch">&#39;\n&#39;</span>);</a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb4-1" title="1">__m256i ws_newline = broadcast_u8((<span class="dt">uint8_t</span>)<span class="ch">&#39;\n&#39;</span>);</a></code></pre></div>
 <p>then we loop over the bytes 32-bytes at a time and perform a parallel comparison on each chunk:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="dt">char</span> *text          = ...; <span class="co">// The text to parse</span></a>
-<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="dt">size_t</span> text_length  = ...; <span class="co">// The length of the text to parse</span></a>
-<a class="sourceLine" id="cb5-3" data-line-number="3"><span class="dt">uint32_t</span> *target    = ...; <span class="co">// The buffer for the rank-select bit-string we are building</span></a>
-<a class="sourceLine" id="cb5-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb5-5" data-line-number="5"><span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i != bytes_end; i += <span class="dv">32</span>) {</a>
-<a class="sourceLine" id="cb5-6" data-line-number="6">  __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
-<a class="sourceLine" id="cb5-7" data-line-number="7"></a>
-<a class="sourceLine" id="cb5-8" data-line-number="8">  <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes[<span class="dv">3</span>]);</a>
-<a class="sourceLine" id="cb5-9" data-line-number="9"></a>
-<a class="sourceLine" id="cb5-10" data-line-number="10">  target[i / <span class="dv">32</span>] = (<span class="dt">uint32_t</span>)matches_bits;</a>
-<a class="sourceLine" id="cb5-11" data-line-number="11">}</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb5-1" title="1"><span class="dt">char</span> *text          = ...; <span class="co">// The text to parse</span></a>
+<a class="sourceLine" id="cb5-2" title="2"><span class="dt">size_t</span> text_length  = ...; <span class="co">// The length of the text to parse</span></a>
+<a class="sourceLine" id="cb5-3" title="3"><span class="dt">uint32_t</span> *target    = ...; <span class="co">// The buffer for the rank-select bit-string we are building</span></a>
+<a class="sourceLine" id="cb5-4" title="4"></a>
+<a class="sourceLine" id="cb5-5" title="5"><span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i != bytes_end; i += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb5-6" title="6">  __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
+<a class="sourceLine" id="cb5-7" title="7"></a>
+<a class="sourceLine" id="cb5-8" title="8">  <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes[<span class="dv">3</span>]);</a>
+<a class="sourceLine" id="cb5-9" title="9"></a>
+<a class="sourceLine" id="cb5-10" title="10">  target[i / <span class="dv">32</span>] = (<span class="dt">uint32_t</span>)matches_bits;</a>
+<a class="sourceLine" id="cb5-11" title="11">}</a></code></pre></div>
 <p>The above code compares each byte in <code>ws_newlines</code> with the corresponding byte in <code>(__m256i*)text</code>.</p>
 <p><code>matches_bytes</code> will contain 32 bytes, each of which will hold one of two values: <code>0x00</code> or <code>0xff</code> dependending on whether the corresponding byte in <code>(__m256i*)text</code> was equal to the corresponding by in <code>matches_bytes</code>.</p>
 <p>The <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> function is then used to compress this result by taking the high bit of each byte in <code>matches_bytes</code> and packing them into <code>matches_bits</code>.</p>
@@ -259,84 +259,84 @@ machdep.cpu.extfeatures: SYSCALL XD 1GBPAGE EM64T LAHF LZCNT PREFETCHW RDTSCP TS
 <p>To look at the potential performance gains from using SIMD versus other alternatives, I’ve written three versions of a tool that counts the number of lines in a text file: <code>naive</code>, <code>broadword</code> and <code>simd</code></p>
 <h2 id="naive">Naive</h2>
 <p>The naive version does nothing more than traverse the text byte-by-byte and compare each byte for equality and incrementing a count on success:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
-<a class="sourceLine" id="cb6-2" data-line-number="2">{</a>
-<a class="sourceLine" id="cb6-3" data-line-number="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
-<a class="sourceLine" id="cb6-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb6-5" data-line-number="5">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; ++i)</a>
-<a class="sourceLine" id="cb6-6" data-line-number="6">  {</a>
-<a class="sourceLine" id="cb6-7" data-line-number="7">    <span class="cf">if</span> (text[i] == <span class="ch">&#39;\n&#39;</span>) {</a>
-<a class="sourceLine" id="cb6-8" data-line-number="8">      ++popCount;</a>
-<a class="sourceLine" id="cb6-9" data-line-number="9">    }</a>
-<a class="sourceLine" id="cb6-10" data-line-number="10">  }</a>
-<a class="sourceLine" id="cb6-11" data-line-number="11"></a>
-<a class="sourceLine" id="cb6-12" data-line-number="12">  <span class="cf">return</span> popCount;</a>
-<a class="sourceLine" id="cb6-13" data-line-number="13">}</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb6-1" title="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb6-2" title="2">{</a>
+<a class="sourceLine" id="cb6-3" title="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb6-4" title="4"></a>
+<a class="sourceLine" id="cb6-5" title="5">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; ++i)</a>
+<a class="sourceLine" id="cb6-6" title="6">  {</a>
+<a class="sourceLine" id="cb6-7" title="7">    <span class="cf">if</span> (text[i] == <span class="ch">&#39;\n&#39;</span>) {</a>
+<a class="sourceLine" id="cb6-8" title="8">      ++popCount;</a>
+<a class="sourceLine" id="cb6-9" title="9">    }</a>
+<a class="sourceLine" id="cb6-10" title="10">  }</a>
+<a class="sourceLine" id="cb6-11" title="11"></a>
+<a class="sourceLine" id="cb6-12" title="12">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb6-13" title="13">}</a></code></pre></div>
 <h2 id="broadword">Broadword</h2>
 <p>The broadword version uses the XOR operation to perform parallel comparison of all 8 bytes in the word with one instruction and relies on a small number of SHIFTS (<code>&gt;&gt;</code>) and ANDS (<code>&amp;</code>) to convert the result into the bit-string we need:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb7-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
-<a class="sourceLine" id="cb7-2" data-line-number="2">{</a>
-<a class="sourceLine" id="cb7-3" data-line-number="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
-<a class="sourceLine" id="cb7-4" data-line-number="4">  <span class="dt">char</span> *mask = <span class="st">&quot;</span><span class="sc">\n\n\n\n\n\n\n\n</span><span class="st">&quot;</span>;</a>
-<a class="sourceLine" id="cb7-5" data-line-number="5">  <span class="dt">uint64_t</span> wm = *(<span class="dt">uint64_t</span> *)mask;</a>
-<a class="sourceLine" id="cb7-6" data-line-number="6"></a>
-<a class="sourceLine" id="cb7-7" data-line-number="7">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">8</span>) {</a>
-<a class="sourceLine" id="cb7-8" data-line-number="8">    <span class="cf">if</span> (i + <span class="dv">8</span> &lt;= bytes_read) {</a>
-<a class="sourceLine" id="cb7-9" data-line-number="9">      <span class="dt">uint64_t</span> w0 = ~(*(<span class="dt">uint64_t</span> *)(text + i) ^ wm);</a>
-<a class="sourceLine" id="cb7-10" data-line-number="10">      <span class="dt">uint64_t</span> w1 = (w0 &gt;&gt; <span class="dv">4</span>) &amp; w0; <span class="co">// Not a typo.  See De Morgan&#39;s law.</span></a>
-<a class="sourceLine" id="cb7-11" data-line-number="11">      <span class="dt">uint64_t</span> w2 = (w1 &gt;&gt; <span class="dv">2</span>) &amp; w1;</a>
-<a class="sourceLine" id="cb7-12" data-line-number="12">      <span class="dt">uint64_t</span> w3 = (w2 &gt;&gt; <span class="dv">1</span>) &amp; w2;</a>
-<a class="sourceLine" id="cb7-13" data-line-number="13"></a>
-<a class="sourceLine" id="cb7-14" data-line-number="14">      <span class="dt">uint64_t</span> bits = (<span class="dt">uint64_t</span>)_pext_u64(w3, 0x0101010101010101L);</a>
-<a class="sourceLine" id="cb7-15" data-line-number="15"></a>
-<a class="sourceLine" id="cb7-16" data-line-number="16">      popCount += _popcnt64(bits);</a>
-<a class="sourceLine" id="cb7-17" data-line-number="17">    } <span class="cf">else</span> {</a>
-<a class="sourceLine" id="cb7-18" data-line-number="18">      <span class="cf">for</span> (<span class="dt">size_t</span> j = i; j &lt; bytes_read; ++j) {</a>
-<a class="sourceLine" id="cb7-19" data-line-number="19">        <span class="cf">if</span> (text[j] == <span class="ch">&#39;\n&#39;</span>) {</a>
-<a class="sourceLine" id="cb7-20" data-line-number="20">          ++popCount;</a>
-<a class="sourceLine" id="cb7-21" data-line-number="21">        }</a>
-<a class="sourceLine" id="cb7-22" data-line-number="22">      }</a>
-<a class="sourceLine" id="cb7-23" data-line-number="23">    }</a>
-<a class="sourceLine" id="cb7-24" data-line-number="24">  }</a>
-<a class="sourceLine" id="cb7-25" data-line-number="25"></a>
-<a class="sourceLine" id="cb7-26" data-line-number="26">  <span class="cf">return</span> popCount;</a>
-<a class="sourceLine" id="cb7-27" data-line-number="27">}</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb7-1" title="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb7-2" title="2">{</a>
+<a class="sourceLine" id="cb7-3" title="3">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb7-4" title="4">  <span class="dt">char</span> *mask = <span class="st">&quot;</span><span class="sc">\n\n\n\n\n\n\n\n</span><span class="st">&quot;</span>;</a>
+<a class="sourceLine" id="cb7-5" title="5">  <span class="dt">uint64_t</span> wm = *(<span class="dt">uint64_t</span> *)mask;</a>
+<a class="sourceLine" id="cb7-6" title="6"></a>
+<a class="sourceLine" id="cb7-7" title="7">  <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">8</span>) {</a>
+<a class="sourceLine" id="cb7-8" title="8">    <span class="cf">if</span> (i + <span class="dv">8</span> &lt;= bytes_read) {</a>
+<a class="sourceLine" id="cb7-9" title="9">      <span class="dt">uint64_t</span> w0 = ~(*(<span class="dt">uint64_t</span> *)(text + i) ^ wm);</a>
+<a class="sourceLine" id="cb7-10" title="10">      <span class="dt">uint64_t</span> w1 = (w0 &gt;&gt; <span class="dv">4</span>) &amp; w0; <span class="co">// Not a typo.  See De Morgan&#39;s law.</span></a>
+<a class="sourceLine" id="cb7-11" title="11">      <span class="dt">uint64_t</span> w2 = (w1 &gt;&gt; <span class="dv">2</span>) &amp; w1;</a>
+<a class="sourceLine" id="cb7-12" title="12">      <span class="dt">uint64_t</span> w3 = (w2 &gt;&gt; <span class="dv">1</span>) &amp; w2;</a>
+<a class="sourceLine" id="cb7-13" title="13"></a>
+<a class="sourceLine" id="cb7-14" title="14">      <span class="dt">uint64_t</span> bits = (<span class="dt">uint64_t</span>)_pext_u64(w3, 0x0101010101010101L);</a>
+<a class="sourceLine" id="cb7-15" title="15"></a>
+<a class="sourceLine" id="cb7-16" title="16">      popCount += _popcnt64(bits);</a>
+<a class="sourceLine" id="cb7-17" title="17">    } <span class="cf">else</span> {</a>
+<a class="sourceLine" id="cb7-18" title="18">      <span class="cf">for</span> (<span class="dt">size_t</span> j = i; j &lt; bytes_read; ++j) {</a>
+<a class="sourceLine" id="cb7-19" title="19">        <span class="cf">if</span> (text[j] == <span class="ch">&#39;\n&#39;</span>) {</a>
+<a class="sourceLine" id="cb7-20" title="20">          ++popCount;</a>
+<a class="sourceLine" id="cb7-21" title="21">        }</a>
+<a class="sourceLine" id="cb7-22" title="22">      }</a>
+<a class="sourceLine" id="cb7-23" title="23">    }</a>
+<a class="sourceLine" id="cb7-24" title="24">  }</a>
+<a class="sourceLine" id="cb7-25" title="25"></a>
+<a class="sourceLine" id="cb7-26" title="26">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb7-27" title="27">}</a></code></pre></div>
 <p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 64-bit word.</p>
 <h2 id="simd">SIMD</h2>
 <p>The SIMD version requires a register to be initialised with the our delimiter replicated to all bytes of the SIMD register in the <code>ws_newlines</code> argument with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4676&amp;text=_mm256_set1_epi8"><code>_mm256_set1_epi8</code></a> intrinsic.</p>
 <p>This value is then compared to the text 64-bytes at a time with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766&amp;text=_mm256_cmpeq_epi8"><code>_mm256_cmpeq_epi8</code></a> intrinsic and summarised into a bit-string with the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,766,3612&amp;text=_mm256_movemask_epi8"><code>_mm256_movemask_epi8</code></a> intrinsic.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb8-1" data-line-number="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">{</a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">  __m256i ws_newlines = _mm256_set1_epi8(<span class="ch">&#39;\n&#39;</span>);</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4">  <span class="dt">char</span> *bytes_end = text + bytes_read;</a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
-<a class="sourceLine" id="cb8-6" data-line-number="6"></a>
-<a class="sourceLine" id="cb8-7" data-line-number="7">  <span class="cf">if</span> ((bytes_read &amp; <span class="bn">0x1f</span>) == <span class="dv">0</span>) {</a>
-<a class="sourceLine" id="cb8-8" data-line-number="8">    <span class="cf">for</span> (; text != bytes_end; text += <span class="dv">32</span>) {</a>
-<a class="sourceLine" id="cb8-9" data-line-number="9">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)text, ws_newlines);</a>
-<a class="sourceLine" id="cb8-10" data-line-number="10"></a>
-<a class="sourceLine" id="cb8-11" data-line-number="11">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
-<a class="sourceLine" id="cb8-12" data-line-number="12"></a>
-<a class="sourceLine" id="cb8-13" data-line-number="13">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)matches_bits);</a>
-<a class="sourceLine" id="cb8-14" data-line-number="14">    }</a>
-<a class="sourceLine" id="cb8-15" data-line-number="15">  } <span class="cf">else</span> {</a>
-<a class="sourceLine" id="cb8-16" data-line-number="16">    <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">32</span>) {</a>
-<a class="sourceLine" id="cb8-17" data-line-number="17">      <span class="dt">size_t</span> bytes_read_iter = bytes_read - i;</a>
-<a class="sourceLine" id="cb8-18" data-line-number="18"></a>
-<a class="sourceLine" id="cb8-19" data-line-number="19">      <span class="cf">if</span> (bytes_read_iter &gt; <span class="dv">32</span>) {</a>
-<a class="sourceLine" id="cb8-20" data-line-number="20">        bytes_read_iter = <span class="dv">32</span>;</a>
-<a class="sourceLine" id="cb8-21" data-line-number="21">      }</a>
-<a class="sourceLine" id="cb8-22" data-line-number="22"></a>
-<a class="sourceLine" id="cb8-23" data-line-number="23">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
-<a class="sourceLine" id="cb8-24" data-line-number="24"></a>
-<a class="sourceLine" id="cb8-25" data-line-number="25">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
-<a class="sourceLine" id="cb8-26" data-line-number="26"></a>
-<a class="sourceLine" id="cb8-27" data-line-number="27">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)((<span class="bn">0xffffffff</span> &gt;&gt; (<span class="dv">32</span> - bytes_read_iter)) &amp; (<span class="dt">uint32_t</span>)matches_bits));</a>
-<a class="sourceLine" id="cb8-28" data-line-number="28">    }</a>
-<a class="sourceLine" id="cb8-29" data-line-number="29">  }</a>
-<a class="sourceLine" id="cb8-30" data-line-number="30"></a>
-<a class="sourceLine" id="cb8-31" data-line-number="31">  <span class="cf">return</span> popCount;</a>
-<a class="sourceLine" id="cb8-32" data-line-number="32">}</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><a class="sourceLine" id="cb8-1" title="1"><span class="dt">size_t</span> process_data(<span class="dt">char</span> *text, <span class="dt">size_t</span> bytes_read)</a>
+<a class="sourceLine" id="cb8-2" title="2">{</a>
+<a class="sourceLine" id="cb8-3" title="3">  __m256i ws_newlines = _mm256_set1_epi8(<span class="ch">&#39;\n&#39;</span>);</a>
+<a class="sourceLine" id="cb8-4" title="4">  <span class="dt">char</span> *bytes_end = text + bytes_read;</a>
+<a class="sourceLine" id="cb8-5" title="5">  <span class="dt">size_t</span> popCount = <span class="dv">0</span>;</a>
+<a class="sourceLine" id="cb8-6" title="6"></a>
+<a class="sourceLine" id="cb8-7" title="7">  <span class="cf">if</span> ((bytes_read &amp; <span class="bn">0x1f</span>) == <span class="dv">0</span>) {</a>
+<a class="sourceLine" id="cb8-8" title="8">    <span class="cf">for</span> (; text != bytes_end; text += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-9" title="9">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)text, ws_newlines);</a>
+<a class="sourceLine" id="cb8-10" title="10"></a>
+<a class="sourceLine" id="cb8-11" title="11">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
+<a class="sourceLine" id="cb8-12" title="12"></a>
+<a class="sourceLine" id="cb8-13" title="13">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)matches_bits);</a>
+<a class="sourceLine" id="cb8-14" title="14">    }</a>
+<a class="sourceLine" id="cb8-15" title="15">  } <span class="cf">else</span> {</a>
+<a class="sourceLine" id="cb8-16" title="16">    <span class="cf">for</span> (<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; bytes_read; i += <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-17" title="17">      <span class="dt">size_t</span> bytes_read_iter = bytes_read - i;</a>
+<a class="sourceLine" id="cb8-18" title="18"></a>
+<a class="sourceLine" id="cb8-19" title="19">      <span class="cf">if</span> (bytes_read_iter &gt; <span class="dv">32</span>) {</a>
+<a class="sourceLine" id="cb8-20" title="20">        bytes_read_iter = <span class="dv">32</span>;</a>
+<a class="sourceLine" id="cb8-21" title="21">      }</a>
+<a class="sourceLine" id="cb8-22" title="22"></a>
+<a class="sourceLine" id="cb8-23" title="23">      __m256i matches_bytes = _mm256_cmpeq_epi8(*(__m256i*)(text + i), ws_newlines);</a>
+<a class="sourceLine" id="cb8-24" title="24"></a>
+<a class="sourceLine" id="cb8-25" title="25">      <span class="dt">int</span> matches_bits = _mm256_movemask_epi8(matches_bytes);</a>
+<a class="sourceLine" id="cb8-26" title="26"></a>
+<a class="sourceLine" id="cb8-27" title="27">      popCount += _mm_popcnt_u32((<span class="dt">uint32_t</span>)((<span class="bn">0xffffffff</span> &gt;&gt; (<span class="dv">32</span> - bytes_read_iter)) &amp; (<span class="dt">uint32_t</span>)matches_bits));</a>
+<a class="sourceLine" id="cb8-28" title="28">    }</a>
+<a class="sourceLine" id="cb8-29" title="29">  }</a>
+<a class="sourceLine" id="cb8-30" title="30"></a>
+<a class="sourceLine" id="cb8-31" title="31">  <span class="cf">return</span> popCount;</a>
+<a class="sourceLine" id="cb8-32" title="32">}</a></code></pre></div>
 <p>The function falls back to byte-by-byte comparison if there are any bytes left that cannot fill a 256-bit SIMD register.</p>
 <h1 id="initial-benchmark-results">Initial benchmark results</h1>
 <p>I benchmark the three versions of the code in C as well as <code>wc -l</code> as a baseline.</p>
@@ -393,22 +393,22 @@ wc -l                 0m5.458s</code></pre>
 <h1 id="pop-count">Pop Count</h1>
 <p>The <code>popcnt</code> operation is quite straight-forward. It takes an integer as its input argument, counts the number of 1-bits and produces an integer containing the count.</p>
 <p>In the following example, I count the number of 1-bits in my bit-string and find there are 5:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb1-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb1-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">λ<span class="fu">&gt;</span> popCount1 bs</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="dv">5</span></a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb1-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb1-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
+<a class="sourceLine" id="cb1-5" title="5">λ<span class="fu">&gt;</span> popCount1 bs</a>
+<a class="sourceLine" id="cb1-6" title="6"><span class="dv">5</span></a></code></pre></div>
 <h1 id="trailing-zeros-count">Trailing Zeros Count</h1>
 <p>The <code>tzcnt</code> operation is also quite straight-forward. It counts the number of “trailing zeros” in the bit-string.</p>
 <p>Unfortunately, because we are on the topic of succinct data-structures, all our bits are expressed in Little-Endian, so visually we are looking at the leading zeros.</p>
 <p>In the following example, I count the number of trailing zeros in my bit-string and find there are 3 (as indicated by the <code>***</code> annotation):</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span>             ***</a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5">λ<span class="fu">&gt;</span> countTrailingZeros bs</a>
-<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="dv">3</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb2-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span>             ***</a>
+<a class="sourceLine" id="cb2-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
+<a class="sourceLine" id="cb2-5" title="5">λ<span class="fu">&gt;</span> countTrailingZeros bs</a>
+<a class="sourceLine" id="cb2-6" title="6"><span class="dv">3</span></a></code></pre></div>
 <h1 id="parallel-extract">Parallel Extract</h1>
 <p>The <code>pext</code> or “parallel extract” operation , is an operation that takes a bit-mask and extracts the bits from the <code>source</code> word corresponding to 1-bits in the bit-mask and packs them into least-significant side of the word.</p>
 <pre class="text"><code>* All words in Little-Endian *
@@ -426,14 +426,14 @@ bits     10  11  10  01
        │││││││┌───────┘
 result 1011100100000000</code></pre>
 <p>In the following example, I extract the high nibble of each byte in my <code>Word32</code> by using a mask where all the high-nibble bits are set to <code>1</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb4-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pext</span></a>
-<a class="sourceLine" id="cb4-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101 11001010 00001001 01011000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb4-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pext source mask</a>
-<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb4-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb4-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb4-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pext</span></a>
+<a class="sourceLine" id="cb4-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101 11001010 00001001 01011000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb4-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb4-7" title="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pext source mask</a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span></a></code></pre></div>
 <h1 id="parallel-deposit">Parallel Deposit</h1>
 <p>The <code>pdep</code> or “parallel deposit” operation, is an operation that takes a bit-mask and deposits the least-significant n-bits from the <code>source</code> word where <code>n</code> is the number of bits in the bit-mask and deposits them at the positions marked by 1-bits in the bit-mask.</p>
 <pre class="text"><code>* All words in Little-Endian *
@@ -451,46 +451,46 @@ source 1011100100000000
 bits     10  11  10  01
 bits   0010001100100001</code></pre>
 <p>In the following example, I deposit the first eight bits in my bits-string into the high nibble of each byte in my <code>Word32</code>, again by using a mask where all the high-nibble bits are set to <code>1</code>:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb6-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb6-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
-<a class="sourceLine" id="cb6-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb6-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb6-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep source mask</a>
-<a class="sourceLine" id="cb6-8" data-line-number="8"><span class="st">&quot;00000101 00001010 00001001 00001000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb6-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb6-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb6-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
+<a class="sourceLine" id="cb6-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb6-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb6-7" title="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep source mask</a>
+<a class="sourceLine" id="cb6-8" title="8"><span class="st">&quot;00000101 00001010 00001001 00001000&quot;</span></a></code></pre></div>
 <h1 id="availability-on-ghc">Availability on GHC</h1>
 <p>In Haskell, the <code>popCount</code> operation is available via the <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/Data-Bits.html#v:popCount"><code>popCount</code></a> function in <code>Data.Bits</code> module of the <a href="http://hackage.haskell.org/package/base">base</a> package.</p>
 <p>On most modern x86 systems, the <code>popCount</code> operation is available on 64-bit integers in the form of the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4093&amp;text=popcnt"><code>POPCNT</code></a> CPU instruction, so it is very fast.</p>
 <p>It is also available to C programs by way of the <code>_popcnt64</code> CPU intrinsic, but what about Haskell?</p>
 <p>To confirm that the function does in fact compile down to an instruction we first check the <a href="https://github.com/ghc/ghc/blob/8df24474d0194d28b8273c1539af05793156e23f/libraries/base/Data/Bits.hs#L508">definition</a> here.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">popCount (<span class="dt">W</span><span class="fu">#</span> x<span class="fu">#</span>)         <span class="fu">=</span> <span class="dt">I</span><span class="fu">#</span> (word2Int<span class="fu">#</span> (popCnt<span class="fu">#</span> x<span class="fu">#</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1">popCount (<span class="dt">W</span><span class="fu">#</span> x<span class="fu">#</span>)         <span class="fu">=</span> <span class="dt">I</span><span class="fu">#</span> (word2Int<span class="fu">#</span> (popCnt<span class="fu">#</span> x<span class="fu">#</span>))</a></code></pre></div>
 <p>and notice the use of the primop <code>popCnt#</code>.</p>
 <p>Digging further into the <a href="https://github.com/ghc/ghc/blob/ab55b4ddb717dab13d8b4900024ccbc8e9280c5c/compiler/nativeGen/X86/CodeGen.hs#L1861">GHC source code</a>:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">    sse4_2 <span class="ot">&lt;-</span> sse4_2Enabled</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">    <span class="kw">let</span> platform <span class="fu">=</span> targetPlatform dflags</a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">    <span class="kw">if</span> sse4_2</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4">      <span class="kw">then</span></a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">                      <span class="fu">....</span></a>
-<a class="sourceLine" id="cb8-6" data-line-number="6">          unitOL (<span class="dt">MOVZxL</span> <span class="dt">II8</span> (<span class="dt">OpReg</span> src_r) (<span class="dt">OpReg</span> src_r)) <span class="ot">`appOL`</span></a>
-<a class="sourceLine" id="cb8-7" data-line-number="7">          unitOL (<span class="dt">POPCNT</span> <span class="dt">II16</span> (<span class="dt">OpReg</span> src_r) dst_r)</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" title="1">    sse4_2 <span class="ot">&lt;-</span> sse4_2Enabled</a>
+<a class="sourceLine" id="cb8-2" title="2">    <span class="kw">let</span> platform <span class="fu">=</span> targetPlatform dflags</a>
+<a class="sourceLine" id="cb8-3" title="3">    <span class="kw">if</span> sse4_2</a>
+<a class="sourceLine" id="cb8-4" title="4">      <span class="kw">then</span></a>
+<a class="sourceLine" id="cb8-5" title="5">                      <span class="fu">....</span></a>
+<a class="sourceLine" id="cb8-6" title="6">          unitOL (<span class="dt">MOVZxL</span> <span class="dt">II8</span> (<span class="dt">OpReg</span> src_r) (<span class="dt">OpReg</span> src_r)) <span class="ot">`appOL`</span></a>
+<a class="sourceLine" id="cb8-7" title="7">          unitOL (<span class="dt">POPCNT</span> <span class="dt">II16</span> (<span class="dt">OpReg</span> src_r) dst_r)</a></code></pre></div>
 <p>We find that this primop generates the <code>POPCNT</code> instruction provided that <code>sse4_2Enabled</code> yields <code>True</code>, which according to the <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/using.html#platform-specific-flags">GHC User Guide</a> can be switched on with the <code>-msse4.2</code> <code>ghc</code> flag since GHC 7.4.1 on x86 CPU architectures.</p>
 <p>A similar search can be done for the <code>tzcnt</code> operation, but <a href="https://github.com/ghc/ghc/blob/44ba66527ae207ce2dd64eb2bce14656d474f6d1/compiler/nativeGen/X86/CodeGen.hs#L1990">unfortunately the equivalent primop expands to a whole bunch of instructions</a>:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1">([ <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         (<span class="dt">OpReg</span> tmp_r)</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2"> , <span class="dt">OR</span>       <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         (<span class="dt">OpReg</span> tmp_r)</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3"> , <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">64</span>)) (<span class="dt">OpReg</span> dst_r)</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4"> , <span class="dt">JXX</span> <span class="dt">EQQ</span>    lbl2</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl1</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6"> </a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"> , <span class="dt">NEWBLOCK</span>   lbl1</a>
-<a class="sourceLine" id="cb9-8" data-line-number="8"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         dst_r</a>
-<a class="sourceLine" id="cb9-9" data-line-number="9"> , <span class="dt">ADD</span>     <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">32</span>)) (<span class="dt">OpReg</span> dst_r)</a>
-<a class="sourceLine" id="cb9-10" data-line-number="10"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         tmp_r</a>
-<a class="sourceLine" id="cb9-11" data-line-number="11"> , <span class="dt">CMOV</span> <span class="dt">NE</span> <span class="dt">II32</span> (<span class="dt">OpReg</span> tmp_r)       dst_r</a>
-<a class="sourceLine" id="cb9-12" data-line-number="12"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl2</a>
-<a class="sourceLine" id="cb9-13" data-line-number="13"> </a>
-<a class="sourceLine" id="cb9-14" data-line-number="14"> , <span class="dt">NEWBLOCK</span>   lbl2</a>
-<a class="sourceLine" id="cb9-15" data-line-number="15">])</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" title="1">([ <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         (<span class="dt">OpReg</span> tmp_r)</a>
+<a class="sourceLine" id="cb9-2" title="2"> , <span class="dt">OR</span>       <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         (<span class="dt">OpReg</span> tmp_r)</a>
+<a class="sourceLine" id="cb9-3" title="3"> , <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">64</span>)) (<span class="dt">OpReg</span> dst_r)</a>
+<a class="sourceLine" id="cb9-4" title="4"> , <span class="dt">JXX</span> <span class="dt">EQQ</span>    lbl2</a>
+<a class="sourceLine" id="cb9-5" title="5"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl1</a>
+<a class="sourceLine" id="cb9-6" title="6"> </a>
+<a class="sourceLine" id="cb9-7" title="7"> , <span class="dt">NEWBLOCK</span>   lbl1</a>
+<a class="sourceLine" id="cb9-8" title="8"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         dst_r</a>
+<a class="sourceLine" id="cb9-9" title="9"> , <span class="dt">ADD</span>     <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">32</span>)) (<span class="dt">OpReg</span> dst_r)</a>
+<a class="sourceLine" id="cb9-10" title="10"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         tmp_r</a>
+<a class="sourceLine" id="cb9-11" title="11"> , <span class="dt">CMOV</span> <span class="dt">NE</span> <span class="dt">II32</span> (<span class="dt">OpReg</span> tmp_r)       dst_r</a>
+<a class="sourceLine" id="cb9-12" title="12"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl2</a>
+<a class="sourceLine" id="cb9-13" title="13"> </a>
+<a class="sourceLine" id="cb9-14" title="14"> , <span class="dt">NEWBLOCK</span>   lbl2</a>
+<a class="sourceLine" id="cb9-15" title="15">])</a></code></pre></div>
 <p>The operation is emulated with <code>BSF</code> or Bit-Scan-Forward, which does something similar, but only works on 32-bit integers.</p>
 <p>Unfortunately for me, I needed optimised <code>pdep</code> and <code>pext</code> primops from <code>ghc</code> for my succinct data-structure libraries, but sadly they weren’t available at the time I sought them, which was about this time last year.</p>
 <p>I created a <a href="https://ghc.haskell.org/trac/ghc/ticket/14206">trac issue</a>, and one thing led to another and I ended up <a href="https://phabricator.haskell.org/D4236">implementing these primops</a> in <code>ghc</code> over the space of several months with the kind help of <a href="https://twitter.com/bgamari">Ben Gamari</a> and <a href="https://twitter.com/angerman_io">Moritz Angermann</a>.</p>
@@ -551,19 +551,19 @@ exits:    00000000000000010001000000010000001</code></pre>
 <p>We need to build <code>odds</code> which has all the odd 1-bits (ie. the opening quotes) and <code>leaves</code> which has all the even 1-bits (ie. the closing quotes).</p>
 <p>We must somehow be able to produce the bit-strings <code>odds</code> and <code>evens</code> from the bit-string <code>quotes</code> very efficiently.</p>
 <p>This is actually very easy with a single application of the <code>pdep</code> operation for each bit-string we produce:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb13-2" data-line-number="2"></a>
-<a class="sourceLine" id="cb13-3" data-line-number="3"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb13-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
-<a class="sourceLine" id="cb13-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs    <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00000000000001011001010000010100001000000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> odds  <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;10101010101010101010101010101010101010101010&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-7" data-line-number="7">λ<span class="fu">&gt;</span> <span class="kw">let</span> evens <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01010101010101010101010101010101010101010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-8" data-line-number="8">λ<span class="fu">&gt;</span> bitShow bs</a>
-<a class="sourceLine" id="cb13-9" data-line-number="9"><span class="st">&quot;00000000 00000101 10010100 00010100 00100000 00000000 00000000 00000000&quot;</span></a>
-<a class="sourceLine" id="cb13-10" data-line-number="10">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep odds bs</a>
-<a class="sourceLine" id="cb13-11" data-line-number="11"><span class="st">&quot;00000000 00000100 10000100 00000100 00000000 00000000 00000000 00000000&quot;</span></a>
-<a class="sourceLine" id="cb13-12" data-line-number="12">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep evens bs</a>
-<a class="sourceLine" id="cb13-13" data-line-number="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb13-2" title="2"></a>
+<a class="sourceLine" id="cb13-3" title="3"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb13-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
+<a class="sourceLine" id="cb13-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs    <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00000000000001011001010000010100001000000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> odds  <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;10101010101010101010101010101010101010101010&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-7" title="7">λ<span class="fu">&gt;</span> <span class="kw">let</span> evens <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01010101010101010101010101010101010101010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-8" title="8">λ<span class="fu">&gt;</span> bitShow bs</a>
+<a class="sourceLine" id="cb13-9" title="9"><span class="st">&quot;00000000 00000101 10010100 00010100 00100000 00000000 00000000 00000000&quot;</span></a>
+<a class="sourceLine" id="cb13-10" title="10">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep odds bs</a>
+<a class="sourceLine" id="cb13-11" title="11"><span class="st">&quot;00000000 00000100 10000100 00000100 00000000 00000000 00000000 00000000&quot;</span></a>
+<a class="sourceLine" id="cb13-12" title="12">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep evens bs</a>
+<a class="sourceLine" id="cb13-13" title="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
 <p>I will leave it to the reader to work out why this works. 😉</p>
 <h1 id="next-steps">Next steps</h1>
 <p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CSV text at a time.</p>
@@ -600,20 +600,20 @@ zzz,yyy,xxx</code></pre>
 <p>The parser will parse the earlier examples to produce results as described below.</p>
 <p>When no quotations are used the substring representing the field text is returned in the result.</p>
 <p>The line-feed byte will act as our newline character. Control chracters other than the row-delimiting line-feed byte are also included in the result with their closest field as is:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">[ [<span class="st">&quot;aaa&quot;</span>, <span class="st">&quot;bbb&quot;</span>, <span class="st">&quot;ccc␍&quot;</span>]</a>
-<a class="sourceLine" id="cb5-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb5-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1">[ [<span class="st">&quot;aaa&quot;</span>, <span class="st">&quot;bbb&quot;</span>, <span class="st">&quot;ccc␍&quot;</span>]</a>
+<a class="sourceLine" id="cb5-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb5-3" title="3">]</a></code></pre></div>
 <p>When quotations are used only around the entire fields containing no newline characters, the field is returned exactly as they appear in the original document including the surrounding double-quotes:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;bbb\&quot;&quot;</span>,<span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
-<a class="sourceLine" id="cb6-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb6-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;bbb\&quot;&quot;</span>,<span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb6-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb6-3" title="3">]</a></code></pre></div>
 <p>When quotations are used only around the entire fields containing line-feed characters or delimiters, such characters will be returned as part of their field in the result:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b␍␊b,b\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
-<a class="sourceLine" id="cb7-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb7-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b␍␊b,b\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb7-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb7-3" title="3">]</a></code></pre></div>
 <p>When quotations are used within quoted fields represented by two consecutive double-quotes, the consecutive double-quotes will be returned in the results as is:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b\&quot;\&quot;bb\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;&quot;</span>]</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">]</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b\&quot;\&quot;bb\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;&quot;</span>]</a>
+<a class="sourceLine" id="cb8-2" title="2">]</a></code></pre></div>
 <p>Returning substrings of the raw text as is in this way is good for performance because it means that in situtations where user-code only wishes to access some fields of each row in the document, they do not need to incur the costs of properly parsing the fields they don’t need.</p>
 <p>This is also beneficial for cases where the user wishes to byte-copy fields from the input document into an output document, for example running a program to select desired fields from a CSV document into a new CSV document.</p>
 <h2 id="deriving-the-strategy">Deriving the strategy</h2>
@@ -727,12 +727,12 @@ exits:    00000000000000010001000000010000001</code></pre>
 <p>Broadword programming, sometimes known as SWAR (SIMD Within A Register) uses large registers (in our case 64-bit integer registers) as small parallel computers that can process several pieces of information at a time.</p>
 <p>We will be using this technique to parse our text 8-bytes at a time.</p>
 <p>Before we start we will need the following operations:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
-<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="ot">(.^.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise XOR of two integers</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4"><span class="ot">comp  ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>           <span class="co">-- Compute the bit-wise complement of an integer</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="ot">(.&amp;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise AND of two integers</span></a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="ot">(.|.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise OR of two integers</span></a>
+<a class="sourceLine" id="cb2-3" title="3"><span class="ot">(.^.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span> <span class="co">-- Compute the bit-wise XOR of two integers</span></a>
+<a class="sourceLine" id="cb2-4" title="4"><span class="ot">comp  ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>           <span class="co">-- Compute the bit-wise complement of an integer</span></a>
+<a class="sourceLine" id="cb2-5" title="5"><span class="ot">(.&gt;.) ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Count</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span>  <span class="co">-- Compute the right shift of an integer by the given offset in Big-Endian</span></a>
+<a class="sourceLine" id="cb2-6" title="6">                                    <span class="co">-- Note, this is equivalent to a left shift of an integer in Little-Endian</span></a></code></pre></div>
 <p>These operators are pretty standard, but pay close attention to the shift operator, which is the standard right shift operator.</p>
 <p>When the bits are laid out in Little-Endian order the right shift operator will actually shift all the bits <em>to the LEFT</em>.</p>
 <p>In all of the diagrams, bits and bytes will be laid out in Little-Endian because it is the natural layout for succinct data structures but it can be very confusing so bear with me and keep this in mind.</p>
@@ -740,9 +740,9 @@ exits:    00000000000000010001000000010000001</code></pre>
 <pre class="text"><code>&quot;name&quot;,&quot;age&quot;,&quot;profession&quot;␤John,30,Code Monkey␤Kyle,40,Data Scrubber
 0000000000000000000000000100000000000000000001000000000000000000000</code></pre>
 <p>To do this, we first create a 64-bit word that contains 8 x 8-bit packed integers each initialised to the ASCII code for the newline character. For example, the hexadecimal representation of the newline character is <code>0x0a</code>, so the 64-bit word we are contructing will be:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0101010101010101</span> <span class="fu">*</span> <span class="bn">0x0a</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0101010101010101</span> <span class="fu">*</span> <span class="bn">0x0a</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
 <p>or</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0a0a0a0a0a0a0a0a</span><span class="dt">L</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1"><span class="kw">let</span> wNewlines <span class="fu">=</span> <span class="bn">0x0a0a0a0a0a0a0a0a</span><span class="dt">L</span><span class="ot"> ::</span> <span class="dt">Word64</span></a></code></pre></div>
 <p>The next step is to take the text and pad it with zero bytes to the nearest 64-bit boundary. Then take the entire text and cast it to a vector of Little-Endian 64-bit integers.</p>
 <p>This leads to a view of memory shown below indicated by <code>text</code>.</p>
 <pre class="text"><code>             Bytes packed into Little-Endian Word64 integers
@@ -841,13 +841,13 @@ M             10000000 10000000 10000000 10000000 10000000 00000000 10000000 100
 <p>We need some way to extract the first bit of every byte in our word, an operation I will call <code>pext</code> or parallel extract, and then take the complement of the result to get the rank-select bit-string we sought.</p>
 <p>The other rank-select bit-string which marks delimiters and newlines can be derived by applying the same algorithm for the delimiters and the newlines separately then taking the bitwise OR <code>(.|.)</code> of the two resulting bit-strings.</p>
 <p>The resulting code is show below.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb9-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3">                    w4s <span class="fu">=</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0x0f0f0f0f0f0f0f0f</span>) <span class="fu">.|.</span> ((w8s <span class="fu">.&amp;.</span> <span class="bn">0xf0f0f0f0f0f0f0f0</span>) <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4">                    w2s <span class="fu">=</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x0707070707070707</span>) <span class="fu">.|.</span> ((w4s <span class="fu">.&amp;.</span> <span class="bn">0x7070707070707070</span>) <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5">                    w1s <span class="fu">=</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x0303030303030303</span>) <span class="fu">.|.</span> ((w2s <span class="fu">.&amp;.</span> <span class="bn">0x3030303030303030</span>) <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" title="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb9-2" title="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb9-3" title="3">                    w4s <span class="fu">=</span> (w8s <span class="fu">.&amp;.</span> <span class="bn">0x0f0f0f0f0f0f0f0f</span>) <span class="fu">.|.</span> ((w8s <span class="fu">.&amp;.</span> <span class="bn">0xf0f0f0f0f0f0f0f0</span>) <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb9-4" title="4">                    w2s <span class="fu">=</span> (w4s <span class="fu">.&amp;.</span> <span class="bn">0x0707070707070707</span>) <span class="fu">.|.</span> ((w4s <span class="fu">.&amp;.</span> <span class="bn">0x7070707070707070</span>) <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb9-5" title="5">                    w1s <span class="fu">=</span> (w2s <span class="fu">.&amp;.</span> <span class="bn">0x0303030303030303</span>) <span class="fu">.|.</span> ((w2s <span class="fu">.&amp;.</span> <span class="bn">0x3030303030303030</span>) <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb9-6" title="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb9-7" title="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>All up we’ve used the following operations:</p>
 <ul>
 <li><code>(.&amp;.)</code> x 6</li>
@@ -892,13 +892,13 @@ M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xx
 <p>As a result of tracing the don’t care or <code>x</code> bits backwards through the computation, I was able to remove six masks and six AND <code>(.&amp;.)</code> operations.</p>
 <p>I left the rows <code>A</code>, <code>C</code>, <code>E</code>, <code>G</code>, <code>J</code>, and <code>L</code> in as non-operations (<code>noop</code>) because I wanted to annotate the additional bits I don’t care beyond those I already don’t care about in the original value.</p>
 <p>The resulting code is much simpler and faster:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
-<a class="sourceLine" id="cb11-3" data-line-number="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
-<a class="sourceLine" id="cb11-4" data-line-number="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb11-5" data-line-number="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb11-6" data-line-number="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
-<a class="sourceLine" id="cb11-7" data-line-number="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" title="1"><span class="ot">testWord8s ::</span> <span class="dt">Word64</span> <span class="ot">-&gt;</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb11-2" title="2">testWord8s w <span class="fu">=</span>  <span class="kw">let</span> w8s <span class="fu">=</span> w</a>
+<a class="sourceLine" id="cb11-3" title="3">                    w4s <span class="fu">=</span> w8s <span class="fu">.|.</span> (w8s <span class="fu">.&gt;.</span> <span class="dv">4</span>)</a>
+<a class="sourceLine" id="cb11-4" title="4">                    w2s <span class="fu">=</span> w4s <span class="fu">.|.</span> (w4s <span class="fu">.&gt;.</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb11-5" title="5">                    w1s <span class="fu">=</span> w2s <span class="fu">.|.</span> (w2s <span class="fu">.&gt;.</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb11-6" title="6">                <span class="kw">in</span>  pext w1s <span class="bn">0x0101010101010101</span></a>
+<a class="sourceLine" id="cb11-7" title="7"><span class="ot">{-# INLINE testWord8s #-}</span></a></code></pre></div>
 <p>The optimisations meas we now use only these operations:</p>
 <ul>
 <li><code>(.|.)</code> x 3</li>
@@ -940,70 +940,70 @@ M             1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 1xxxxxxx 0xxxxxxx 1xxxxxxx 1xx
 <h1 id="the-rank-select-bit-string">The rank-select bit-string</h1>
 <p>Before we can pull this off we are going to have to learn us some concepts.</p>
 <p>Imagine a string of bits. Not unlike the following:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">let</span> bs <span class="fu">=</span> <span class="st">&quot;101000000010000000100000010001000000100000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">let</span> bs <span class="fu">=</span> <span class="st">&quot;101000000010000000100000010001000000100000&quot;</span></a></code></pre></div>
 <p>In order to query this bit-string we will be using two very powerful query operations <strong>rank</strong> and <strong>select</strong>.</p>
 <p>The pseudocode for these to operations are provided below in Haskell which you can drop into your Haskell repl to observe their behaviours:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="kw">import</span> <span class="dt">Data.List</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"></a>
-<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="ot">popCount1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">popCount1 bs <span class="fu">=</span> length (filter (<span class="fu">==</span> <span class="ch">&#39;1&#39;</span>) bs)</a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ot">rank1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-7" data-line-number="7">rank1 bs n <span class="fu">=</span> popCount1 (take n bs)</a>
-<a class="sourceLine" id="cb2-8" data-line-number="8"></a>
-<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="ot">select1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-10" data-line-number="10">select1 bs n <span class="fu">=</span> length (head (dropWhile ((<span class="fu">&lt;</span> n) <span class="fu">.</span> popCount1) (inits (filter isBinary bs))))</a>
-<a class="sourceLine" id="cb2-11" data-line-number="11">  <span class="kw">where</span> isBinary c <span class="fu">=</span> c <span class="fu">==</span> <span class="ch">&#39;0&#39;</span> <span class="fu">||</span> c <span class="fu">==</span> <span class="ch">&#39;1&#39;</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="kw">import</span> <span class="dt">Data.List</span></a>
+<a class="sourceLine" id="cb2-2" title="2"></a>
+<a class="sourceLine" id="cb2-3" title="3"><span class="ot">popCount1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-4" title="4">popCount1 bs <span class="fu">=</span> <span class="fu">length</span> (<span class="fu">filter</span> (<span class="fu">==</span> <span class="ch">&#39;1&#39;</span>) bs)</a>
+<a class="sourceLine" id="cb2-5" title="5"></a>
+<a class="sourceLine" id="cb2-6" title="6"><span class="ot">rank1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-7" title="7">rank1 bs n <span class="fu">=</span> popCount1 (<span class="fu">take</span> n bs)</a>
+<a class="sourceLine" id="cb2-8" title="8"></a>
+<a class="sourceLine" id="cb2-9" title="9"><span class="ot">select1 ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-10" title="10">select1 bs n <span class="fu">=</span> <span class="fu">length</span> (<span class="fu">head</span> (<span class="fu">dropWhile</span> ((<span class="fu">&lt;</span> n) <span class="fu">.</span> popCount1) (inits (<span class="fu">filter</span> isBinary bs))))</a>
+<a class="sourceLine" id="cb2-11" title="11">  <span class="kw">where</span> isBinary c <span class="fu">=</span> c <span class="fu">==</span> <span class="ch">&#39;0&#39;</span> <span class="fu">||</span> c <span class="fu">==</span> <span class="ch">&#39;1&#39;</span></a></code></pre></div>
 <p>The first function <code>popCount1</code> is the <strong>population</strong> operation (sometimes called the <a href="https://en.wikipedia.org/wiki/Hamming_weight">hamming weight</a>). It tells us how many <code>1</code> bits there are in our bit-string.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1">λ<span class="fu">&gt;</span> popCount1 bs</a>
-<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="dv">7</span></a></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" title="1">λ<span class="fu">&gt;</span> popCount1 bs</a>
+<a class="sourceLine" id="cb3-2" title="2"><span class="dv">7</span></a></code></pre></div>
 <p>The second function <code>rank1</code> is the <strong>rank</strong> operation which tells us the population count of the length <code>n</code> prefix of our bit-string.</p>
 <p>Here are some example <strong>rank</strong> queries:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">0</span></a>
-<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="dv">0</span></a>
-<a class="sourceLine" id="cb4-3" data-line-number="3">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4"><span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-5" data-line-number="5">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-6" data-line-number="6"><span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-9" data-line-number="9">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">14</span></a>
-<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="dv">3</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">0</span></a>
+<a class="sourceLine" id="cb4-2" title="2"><span class="dv">0</span></a>
+<a class="sourceLine" id="cb4-3" title="3">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-4" title="4"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-5" title="5">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-6" title="6"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-7" title="7">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-9" title="9">λ<span class="fu">&gt;</span> rank1 bs <span class="dv">14</span></a>
+<a class="sourceLine" id="cb4-10" title="10"><span class="dv">3</span></a></code></pre></div>
 <p>The third function <code>select1</code> is the <strong>select</strong> operation which tells us smallest prefix of the given bit-string with the given population <code>n</code>.</p>
 <p>Here are some example <strong>select</strong> queries:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">λ<span class="fu">&gt;</span> select1 bs <span class="dv">0</span></a>
-<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="dv">0</span></a>
-<a class="sourceLine" id="cb5-3" data-line-number="3">λ<span class="fu">&gt;</span> select1 bs <span class="dv">1</span></a>
-<a class="sourceLine" id="cb5-4" data-line-number="4"><span class="dv">1</span></a>
-<a class="sourceLine" id="cb5-5" data-line-number="5">λ<span class="fu">&gt;</span> select1 bs <span class="dv">2</span></a>
-<a class="sourceLine" id="cb5-6" data-line-number="6"><span class="dv">3</span></a>
-<a class="sourceLine" id="cb5-7" data-line-number="7">λ<span class="fu">&gt;</span> select1 bs <span class="dv">3</span></a>
-<a class="sourceLine" id="cb5-8" data-line-number="8"><span class="dv">11</span></a>
-<a class="sourceLine" id="cb5-9" data-line-number="9">λ<span class="fu">&gt;</span> select1 bs <span class="dv">4</span></a>
-<a class="sourceLine" id="cb5-10" data-line-number="10"><span class="dv">19</span></a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1">λ<span class="fu">&gt;</span> select1 bs <span class="dv">0</span></a>
+<a class="sourceLine" id="cb5-2" title="2"><span class="dv">0</span></a>
+<a class="sourceLine" id="cb5-3" title="3">λ<span class="fu">&gt;</span> select1 bs <span class="dv">1</span></a>
+<a class="sourceLine" id="cb5-4" title="4"><span class="dv">1</span></a>
+<a class="sourceLine" id="cb5-5" title="5">λ<span class="fu">&gt;</span> select1 bs <span class="dv">2</span></a>
+<a class="sourceLine" id="cb5-6" title="6"><span class="dv">3</span></a>
+<a class="sourceLine" id="cb5-7" title="7">λ<span class="fu">&gt;</span> select1 bs <span class="dv">3</span></a>
+<a class="sourceLine" id="cb5-8" title="8"><span class="dv">11</span></a>
+<a class="sourceLine" id="cb5-9" title="9">λ<span class="fu">&gt;</span> select1 bs <span class="dv">4</span></a>
+<a class="sourceLine" id="cb5-10" title="10"><span class="dv">19</span></a></code></pre></div>
 <p>In less precise terms, the <strong>rank</strong> gives us how many <code>1s</code> up to a given position <code>n</code> in our bit-string and <strong>select</strong> gives us the position of the <code>n</code><sup><code>th</code></sup> <code>1</code> in our bit-string.</p>
 <h1 id="rank-select-bit-string-as-an-index-into-json">Rank-Select Bit-String as an index into JSON</h1>
 <p>We will now use the rank-select bit-string to index into JSON, which is to say we will use it to locate interesting locations in our JSON document that correspond to the beginning of JSON nodes.</p>
 <p>In our semi-index, every bit in the rank-select bit-string corresponds to a byte in the original document of the same position. The value of each bit is chosen such that when the byte represents the start of a node in the document it will be set to <code>1</code>. Otherwise it will be set to <code>0</code>.</p>
 <p>For JSON, the beginning of every object (indicated by <code>{</code>), every array (indiciated by <code>[</code>), every field or value will be marked with a <code>1</code>, and all other bytes are marked with a <code>0</code>.</p>
 <p>The example below demonstrates this mapping from bytes to bits:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;John&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">30</span><span class="fu">,</span> <span class="dt">&quot;car&quot;</span><span class="fu">:</span> <span class="kw">null</span><span class="fu">,</span> <span class="er">colors</span><span class="fu">:</span> <span class="ot">[</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span><span class="ot">]</span> <span class="fu">}</span></a>
-<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="er">1010000000100000001000000100010000001000001000000011001001000</span></a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb6-1" title="1"><span class="fu">{</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;John&quot;</span><span class="fu">,</span> <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">30</span><span class="fu">,</span> <span class="dt">&quot;car&quot;</span><span class="fu">:</span> <span class="kw">null</span><span class="fu">,</span> <span class="er">colors</span><span class="fu">:</span> <span class="ot">[</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">2</span><span class="ot">,</span> <span class="dv">3</span><span class="ot">]</span> <span class="fu">}</span></a>
+<a class="sourceLine" id="cb6-2" title="2"><span class="er">1010000000100000001000000100010000001000001000000011001001000</span></a></code></pre></div>
 <p>What this gives us is the ability to locate the <code>n</code><sup><code>th</code></sup> node in the document with <strong>rank-select</strong> operations.</p>
 <p>For example the <code>6</code><sup><code>th</code></sup> node is marked by the <code>6</code><sup><code>th</code></sup> <code>1</code> bit at the location that corresponds to the field-name <code>&quot;car&quot;</code>:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">λ<span class="fu">&gt;</span> <span class="kw">let</span> text <span class="fu">=</span> <span class="st">&quot;{ \&quot;name\&quot;: \&quot;John\&quot;, \&quot;age\&quot;: 30, \&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a>
-<a class="sourceLine" id="cb7-2" data-line-number="2">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs   <span class="fu">=</span> <span class="st">&quot;101 00000 001 00000 0010 00000 10001000 00010 000010000000011001001000&quot;</span></a>
-<a class="sourceLine" id="cb7-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">let</span> offset <span class="fu">=</span> select1 bs <span class="dv">6</span></a>
-<a class="sourceLine" id="cb7-4" data-line-number="4"><span class="dv">31</span></a>
-<a class="sourceLine" id="cb7-5" data-line-number="5">λ<span class="fu">&gt;</span> drop (offset <span class="fu">-</span> <span class="dv">1</span>) text</a>
-<a class="sourceLine" id="cb7-6" data-line-number="6"><span class="st">&quot;\&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1">λ<span class="fu">&gt;</span> <span class="kw">let</span> text <span class="fu">=</span> <span class="st">&quot;{ \&quot;name\&quot;: \&quot;John\&quot;, \&quot;age\&quot;: 30, \&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a>
+<a class="sourceLine" id="cb7-2" title="2">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs   <span class="fu">=</span> <span class="st">&quot;101 00000 001 00000 0010 00000 10001000 00010 000010000000011001001000&quot;</span></a>
+<a class="sourceLine" id="cb7-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">let</span> offset <span class="fu">=</span> select1 bs <span class="dv">6</span></a>
+<a class="sourceLine" id="cb7-4" title="4"><span class="dv">31</span></a>
+<a class="sourceLine" id="cb7-5" title="5">λ<span class="fu">&gt;</span> <span class="fu">drop</span> (offset <span class="fu">-</span> <span class="dv">1</span>) text</a>
+<a class="sourceLine" id="cb7-6" title="6"><span class="st">&quot;\&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a></code></pre></div>
 <p>In another example, the <code>9</code><sup><code>th</code></sup> node is marked by the <code>9</code><sup><code>th</code></sup> <code>1</code> bit at the location that corresponds to the beginning of the JSON array:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">λ<span class="fu">&gt;</span> <span class="kw">let</span> text <span class="fu">=</span> <span class="st">&quot;{ \&quot;name\&quot;: \&quot;John\&quot;, \&quot;age\&quot;: 30, \&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs   <span class="fu">=</span> <span class="st">&quot;101 00000 001 00000 0010 00000 10001000 00010 000010000000011001001000&quot;</span></a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">let</span> offset <span class="fu">=</span> select1 bs <span class="dv">9</span></a>
-<a class="sourceLine" id="cb8-4" data-line-number="4"><span class="dv">52</span></a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">λ<span class="fu">&gt;</span> drop (offset <span class="fu">-</span> <span class="dv">1</span>) text</a>
-<a class="sourceLine" id="cb8-6" data-line-number="6"><span class="st">&quot;[1, 2, 3] }&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" title="1">λ<span class="fu">&gt;</span> <span class="kw">let</span> text <span class="fu">=</span> <span class="st">&quot;{ \&quot;name\&quot;: \&quot;John\&quot;, \&quot;age\&quot;: 30, \&quot;car\&quot;: null, numbers: [1, 2, 3] }&quot;</span></a>
+<a class="sourceLine" id="cb8-2" title="2">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs   <span class="fu">=</span> <span class="st">&quot;101 00000 001 00000 0010 00000 10001000 00010 000010000000011001001000&quot;</span></a>
+<a class="sourceLine" id="cb8-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">let</span> offset <span class="fu">=</span> select1 bs <span class="dv">9</span></a>
+<a class="sourceLine" id="cb8-4" title="4"><span class="dv">52</span></a>
+<a class="sourceLine" id="cb8-5" title="5">λ<span class="fu">&gt;</span> <span class="fu">drop</span> (offset <span class="fu">-</span> <span class="dv">1</span>) text</a>
+<a class="sourceLine" id="cb8-6" title="6"><span class="st">&quot;[1, 2, 3] }&quot;</span></a></code></pre></div>
 <p>You may notice that each successive <code>1</code> bit in the rank-select bit-string identifies nodes of the document according to pre-order traversal.</p>
 <p>It is also worth noting that the rank-select bit-string in combination with the original text can be used to identify the type of the node in <code>O(1)</code> time, by testing the character pointed to by the rank-select bit-string.</p>
 <p>For example, we know the <code>6</code><sup><code>th</code></sup> node in the document is a string because the character at line <code>31</code> is a <code>&quot;</code>, whilst the <code>9</code><sup><code>th</code></sup> node is an array because the character at line <code>52</code> is a <code>[</code>.</p>
@@ -1043,55 +1043,55 @@ Kyle,40,Data Scrubber</code></pre>
 <p>Memory in particular can be a serious problem because we store files in S3 where the pricing model and latency of <code>GET</code> queries favours the storage of large files in the hundreds of MBs each.</p>
 <p>The danger with storing such large files, however, is we can run out of memory just trying to parse them.</p>
 <p>To illustrate the problem, here is a sample program that parses a JSON file and reports how much memory it uses before exiting.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="dt">Control.Monad</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="kw">import</span> <span class="dt">Data.Aeson</span></a>
-<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">import</span> <span class="dt">GHC.Stats</span></a>
-<a class="sourceLine" id="cb1-4" data-line-number="4"><span class="kw">import</span> <span class="dt">System.Posix.Process</span></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="kw">import</span> <span class="dt">System.Process</span></a>
-<a class="sourceLine" id="cb1-6" data-line-number="6"></a>
-<a class="sourceLine" id="cb1-7" data-line-number="7"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">BS</span></a>
-<a class="sourceLine" id="cb1-8" data-line-number="8"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">System.Environment</span>   <span class="kw">as</span> <span class="dt">IO</span></a>
-<a class="sourceLine" id="cb1-9" data-line-number="9"></a>
-<a class="sourceLine" id="cb1-10" data-line-number="10"><span class="ot">main ::</span> <span class="dt">IO</span> ()</a>
-<a class="sourceLine" id="cb1-11" data-line-number="11">main <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb1-12" data-line-number="12">  pid <span class="ot">&lt;-</span> getProcessID</a>
-<a class="sourceLine" id="cb1-13" data-line-number="13">  (filename<span class="fu">:</span>_) <span class="ot">&lt;-</span> <span class="dt">IO</span><span class="fu">.</span>getArgs</a>
-<a class="sourceLine" id="cb1-14" data-line-number="14">  bs <span class="ot">&lt;-</span> BS.readFile filename</a>
-<a class="sourceLine" id="cb1-15" data-line-number="15">  <span class="kw">let</span> <span class="fu">!</span>maybeJson <span class="fu">=</span> decode<span class="ot"> bs ::</span> <span class="dt">Maybe</span> <span class="dt">Value</span></a>
-<a class="sourceLine" id="cb1-16" data-line-number="16"></a>
-<a class="sourceLine" id="cb1-17" data-line-number="17">  system <span class="fu">$</span> <span class="st">&quot;ps aux | grep &quot;</span> <span class="fu">&lt;&gt;</span> show pid <span class="fu">&lt;&gt;</span> <span class="st">&quot; | grep -v grep&quot;</span></a>
-<a class="sourceLine" id="cb1-18" data-line-number="18"></a>
-<a class="sourceLine" id="cb1-19" data-line-number="19">  forM_ maybeJson <span class="fu">$</span> \_ <span class="ot">-&gt;</span></a>
-<a class="sourceLine" id="cb1-20" data-line-number="20">    putStrLn <span class="st">&quot;Done&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">import</span> <span class="dt">Control.Monad</span></a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="kw">import</span> <span class="dt">Data.Aeson</span></a>
+<a class="sourceLine" id="cb1-3" title="3"><span class="kw">import</span> <span class="dt">GHC.Stats</span></a>
+<a class="sourceLine" id="cb1-4" title="4"><span class="kw">import</span> <span class="dt">System.Posix.Process</span></a>
+<a class="sourceLine" id="cb1-5" title="5"><span class="kw">import</span> <span class="dt">System.Process</span></a>
+<a class="sourceLine" id="cb1-6" title="6"></a>
+<a class="sourceLine" id="cb1-7" title="7"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">BS</span></a>
+<a class="sourceLine" id="cb1-8" title="8"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">System.Environment</span>   <span class="kw">as</span> <span class="dt">IO</span></a>
+<a class="sourceLine" id="cb1-9" title="9"></a>
+<a class="sourceLine" id="cb1-10" title="10"><span class="ot">main ::</span> <span class="dt">IO</span> ()</a>
+<a class="sourceLine" id="cb1-11" title="11">main <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb1-12" title="12">  pid <span class="ot">&lt;-</span> getProcessID</a>
+<a class="sourceLine" id="cb1-13" title="13">  (filename<span class="fu">:</span>_) <span class="ot">&lt;-</span> <span class="dt">IO</span><span class="fu">.</span>getArgs</a>
+<a class="sourceLine" id="cb1-14" title="14">  bs <span class="ot">&lt;-</span> BS.readFile filename</a>
+<a class="sourceLine" id="cb1-15" title="15">  <span class="kw">let</span> <span class="fu">!</span>maybeJson <span class="fu">=</span> decode<span class="ot"> bs ::</span> <span class="dt">Maybe</span> <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb1-16" title="16"></a>
+<a class="sourceLine" id="cb1-17" title="17">  system <span class="fu">$</span> <span class="st">&quot;ps aux | grep &quot;</span> <span class="fu">&lt;&gt;</span> <span class="fu">show</span> pid <span class="fu">&lt;&gt;</span> <span class="st">&quot; | grep -v grep&quot;</span></a>
+<a class="sourceLine" id="cb1-18" title="18"></a>
+<a class="sourceLine" id="cb1-19" title="19">  forM_ maybeJson <span class="fu">$</span> \_ <span class="ot">-&gt;</span></a>
+<a class="sourceLine" id="cb1-20" title="20">    <span class="fu">putStrLn</span> <span class="st">&quot;Done&quot;</span></a></code></pre></div>
 <p>This program is used to parse a <code>25MB</code> file as follows:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb2-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/blog-examples.git</a>
-<a class="sourceLine" id="cb2-2" data-line-number="2">$ <span class="bu">cd</span> blog-examples/simple-json</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">$ <span class="ex">stack</span> build</a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">$ <span class="ex">curl</span> https://data.medicare.gov/api/views/ijh5-nb2v/rows.json\?accessType\=DOWNLOAD <span class="op">&gt;</span> hospitalisation.json</a>
-<a class="sourceLine" id="cb2-5" data-line-number="5">$ <span class="fu">ls</span> -lh hospitalisation.json</a>
-<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ex">-rw-r--r--</span>  1 jky  staff    25M 24 Jul 22:00 hospitalisation.json</a>
-<a class="sourceLine" id="cb2-7" data-line-number="7">$ <span class="ex">stack</span> exec simple-json hospitalisation.json</a>
-<a class="sourceLine" id="cb2-8" data-line-number="8"><span class="ex">jky</span>              32237 394.0  1.9 1078037040 323084 s001  S+   10:05pm   0:03.79 /Users/jky/wrk/haskell-works/blog-examples/simple-json/.stack-work/install/x86_64-osx/lts-12.2/8.4.3/bin/simple-json hospitalisation.json</a>
-<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="ex">Done</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb2-1" title="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/blog-examples.git</a>
+<a class="sourceLine" id="cb2-2" title="2">$ <span class="bu">cd</span> blog-examples/simple-json</a>
+<a class="sourceLine" id="cb2-3" title="3">$ <span class="ex">stack</span> build</a>
+<a class="sourceLine" id="cb2-4" title="4">$ <span class="ex">curl</span> https://data.medicare.gov/api/views/ijh5-nb2v/rows.json\?accessType\=DOWNLOAD <span class="op">&gt;</span> hospitalisation.json</a>
+<a class="sourceLine" id="cb2-5" title="5">$ <span class="fu">ls</span> -lh hospitalisation.json</a>
+<a class="sourceLine" id="cb2-6" title="6"><span class="ex">-rw-r--r--</span>  1 jky  staff    25M 24 Jul 22:00 hospitalisation.json</a>
+<a class="sourceLine" id="cb2-7" title="7">$ <span class="ex">stack</span> exec simple-json hospitalisation.json</a>
+<a class="sourceLine" id="cb2-8" title="8"><span class="ex">jky</span>              32237 394.0  1.9 1078037040 323084 s001  S+   10:05pm   0:03.79 /Users/jky/wrk/haskell-works/blog-examples/simple-json/.stack-work/install/x86_64-osx/lts-12.2/8.4.3/bin/simple-json hospitalisation.json</a>
+<a class="sourceLine" id="cb2-9" title="9"><span class="ex">Done</span></a></code></pre></div>
 <p>The program self-reports that after parsing the file, it is using <code>394MB</code> of memory!</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb3-1" data-line-number="1">$ <span class="bu">time</span> gzip hospitalisation.json</a>
-<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">gzip</span> hospitalisation.json  0.55s user 0.02s system 96% cpu 0.595 total</a></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb3-1" title="1">$ <span class="bu">time</span> gzip hospitalisation.json</a>
+<a class="sourceLine" id="cb3-2" title="2"><span class="fu">gzip</span> hospitalisation.json  0.55s user 0.02s system 96% cpu 0.595 total</a></code></pre></div>
 <p>The discrepancy is even larger if we consider that large files stored in S3 are often compressed:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb4-1" data-line-number="1">$ <span class="fu">gzip</span> hospitalisation.json</a>
-<a class="sourceLine" id="cb4-2" data-line-number="2">$ <span class="fu">ls</span> -lh hospitalisation.json.gz</a>
-<a class="sourceLine" id="cb4-3" data-line-number="3"><span class="ex">-rw-r--r--</span>  1 jky  staff   4.5M 24 Jul 22:00 hospitalisation.json.gz</a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb4-1" title="1">$ <span class="fu">gzip</span> hospitalisation.json</a>
+<a class="sourceLine" id="cb4-2" title="2">$ <span class="fu">ls</span> -lh hospitalisation.json.gz</a>
+<a class="sourceLine" id="cb4-3" title="3"><span class="ex">-rw-r--r--</span>  1 jky  staff   4.5M 24 Jul 22:00 hospitalisation.json.gz</a></code></pre></div>
 <p>So now we’re look at unzipping and then parsing at a memory cost of <code>394M</code>, or <code>87x</code> the size of the compressed <code>4.5MB</code> file or <code>16x</code> the the size of the original <code>25MB</code> file.</p>
 <h2 id="why-does-this-happen">Why does this happen</h2>
 <p>JSON is hardly a compact serialisation format to start with, so the amount of memory required for parsing is quite astonishing.</p>
 <p>Let’s take a look at the data type that describes that data that composes a typical JSON document:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">data</span> <span class="dt">Json</span></a>
-<a class="sourceLine" id="cb5-2" data-line-number="2">  <span class="fu">=</span> <span class="dt">JsonString</span> <span class="dt">String</span></a>
-<a class="sourceLine" id="cb5-3" data-line-number="3">  <span class="fu">|</span> <span class="dt">JsonNumber</span> <span class="dt">Double</span></a>
-<a class="sourceLine" id="cb5-4" data-line-number="4">  <span class="fu">|</span> <span class="dt">JsonObject</span> [(<span class="dt">String</span>, <span class="dt">Json</span>)]</a>
-<a class="sourceLine" id="cb5-5" data-line-number="5">  <span class="fu">|</span> <span class="dt">JsonArray</span> [<span class="dt">Json</span>]</a>
-<a class="sourceLine" id="cb5-6" data-line-number="6">  <span class="fu">|</span> <span class="dt">JsonBool</span> <span class="dt">Bool</span></a>
-<a class="sourceLine" id="cb5-7" data-line-number="7">  <span class="fu">|</span> <span class="dt">JsonNull</span></a>
-<a class="sourceLine" id="cb5-8" data-line-number="8">  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1"><span class="kw">data</span> <span class="dt">Json</span></a>
+<a class="sourceLine" id="cb5-2" title="2">  <span class="fu">=</span> <span class="dt">JsonString</span> <span class="dt">String</span></a>
+<a class="sourceLine" id="cb5-3" title="3">  <span class="fu">|</span> <span class="dt">JsonNumber</span> <span class="dt">Double</span></a>
+<a class="sourceLine" id="cb5-4" title="4">  <span class="fu">|</span> <span class="dt">JsonObject</span> [(<span class="dt">String</span>, <span class="dt">Json</span>)]</a>
+<a class="sourceLine" id="cb5-5" title="5">  <span class="fu">|</span> <span class="dt">JsonArray</span> [<span class="dt">Json</span>]</a>
+<a class="sourceLine" id="cb5-6" title="6">  <span class="fu">|</span> <span class="dt">JsonBool</span> <span class="dt">Bool</span></a>
+<a class="sourceLine" id="cb5-7" title="7">  <span class="fu">|</span> <span class="dt">JsonNull</span></a>
+<a class="sourceLine" id="cb5-8" title="8">  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</a></code></pre></div>
 <p>This can be explained by the cost of pointers.</p>
 <p>A large document, will have lots of pointers connecting all the JSON nodes and they cost 64-bits each on modern CPU architectures.</p>
 <p>The image below constrasts the amount of memory allocated to actual data (green) versus the amount of memory allocated to pointers (purple) and other housekeeping information maintained by the runtime (blue).</p>
@@ -1110,24 +1110,24 @@ Kyle,40,Data Scrubber</code></pre>
 <h1 id="cpu-usage-and-io-boundedness">CPU usage and IO boundedness</h1>
 <p>Another point of consideration when parsing large datasets is how long it takes to parse the file. Often we would just dismiss the slowness to the parsing being IO bound, but is it really?</p>
 <p>Here we measure how long it takes to parse a <code>25MB</code> JSON file (on my Macbook Pro):</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb6-1" data-line-number="1">$ <span class="bu">time</span> stack exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="ex">stack</span> exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null  2.96s user 1.21s system 328% cpu 1.270 total</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb6-1" title="1">$ <span class="bu">time</span> stack exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb6-2" title="2"><span class="ex">stack</span> exec simple-json hospitalisation.json <span class="op">&gt;</span> /dev/null  2.96s user 1.21s system 328% cpu 1.270 total</a></code></pre></div>
 <p>At <code>8.44 MB/s</code> (from <code>25 MB / 2.96 s</code>), is that fast or close to IO bound?</p>
 <p>Not even close.</p>
 <p>Below, we see that command line tool <code>cut</code> can select the first two columns out of a CSV file at a rate of <code>76MiB/s</code>, almost an order of magnitude faster.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb7-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">cut</span> -d , -f 1 -f 2 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb7-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:01:35 [76.0MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb7-1" title="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">cut</span> -d , -f 1 -f 2 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb7-2" title="2"><span class="ex">7.08GiB</span> 0:01:35 [76.0MiB/s]</a></code></pre></div>
 <p>Are we IO bound yet?</p>
 <p>Other programs are faster. For example:</p>
 <p>Character count:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb8-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -c <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:24 [ 298MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb8-1" title="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -c <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb8-2" title="2"><span class="ex">7.08GiB</span> 0:00:24 [ 298MiB/s]</a></code></pre></div>
 <p>Line count:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -l <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:08 [ 819MiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" title="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="fu">wc</span> -l <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-2" title="2"><span class="ex">7.08GiB</span> 0:00:08 [ 819MiB/s]</a></code></pre></div>
 <p>Or remove <code>wc</code> altogether so we just have <code>cat</code> and <code>pv</code>:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb10-1" data-line-number="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb10-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:02 [2.56GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb10-1" title="1">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb10-2" title="2"><span class="ex">7.08GiB</span> 0:00:02 [2.56GiB/s]</a></code></pre></div>
 <p>It’s probably safe to say, JSON parsing with a traditional style parser will, depending on the specifics of the hardware, be one to three orders of magnitude slower than speeds where it could be considered to be IO bound.</p>
 <h1 id="where-to-from-here">Where to from here</h1>
 <p>In the near future, I’d like to describe on this blog how the <code>haskell-works</code> parsing libraries address these and other problems, and future directions the libraries might take.</p>

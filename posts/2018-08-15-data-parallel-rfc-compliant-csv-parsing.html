@@ -55,20 +55,20 @@ zzz,yyy,xxx</code></pre>
 <p>The parser will parse the earlier examples to produce results as described below.</p>
 <p>When no quotations are used the substring representing the field text is returned in the result.</p>
 <p>The line-feed byte will act as our newline character. Control chracters other than the row-delimiting line-feed byte are also included in the result with their closest field as is:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1">[ [<span class="st">&quot;aaa&quot;</span>, <span class="st">&quot;bbb&quot;</span>, <span class="st">&quot;ccc␍&quot;</span>]</a>
-<a class="sourceLine" id="cb5-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb5-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" title="1">[ [<span class="st">&quot;aaa&quot;</span>, <span class="st">&quot;bbb&quot;</span>, <span class="st">&quot;ccc␍&quot;</span>]</a>
+<a class="sourceLine" id="cb5-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb5-3" title="3">]</a></code></pre></div>
 <p>When quotations are used only around the entire fields containing no newline characters, the field is returned exactly as they appear in the original document including the surrounding double-quotes:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;bbb\&quot;&quot;</span>,<span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
-<a class="sourceLine" id="cb6-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb6-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;bbb\&quot;&quot;</span>,<span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb6-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb6-3" title="3">]</a></code></pre></div>
 <p>When quotations are used only around the entire fields containing line-feed characters or delimiters, such characters will be returned as part of their field in the result:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b␍␊b,b\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
-<a class="sourceLine" id="cb7-2" data-line-number="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
-<a class="sourceLine" id="cb7-3" data-line-number="3">]</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b␍␊b,b\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;␍&quot;</span>]</a>
+<a class="sourceLine" id="cb7-2" title="2">, [<span class="st">&quot;zzz&quot;</span>, <span class="st">&quot;yyy&quot;</span>, <span class="st">&quot;xxx&quot;</span>]</a>
+<a class="sourceLine" id="cb7-3" title="3">]</a></code></pre></div>
 <p>When quotations are used within quoted fields represented by two consecutive double-quotes, the consecutive double-quotes will be returned in the results as is:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b\&quot;\&quot;bb\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;&quot;</span>]</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">]</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" title="1">[ [<span class="st">&quot;\&quot;aaa\&quot;&quot;</span>, <span class="st">&quot;\&quot;b\&quot;\&quot;bb\&quot;&quot;</span>, <span class="st">&quot;\&quot;ccc\&quot;&quot;</span>]</a>
+<a class="sourceLine" id="cb8-2" title="2">]</a></code></pre></div>
 <p>Returning substrings of the raw text as is in this way is good for performance because it means that in situtations where user-code only wishes to access some fields of each row in the document, they do not need to incur the costs of properly parsing the fields they don’t need.</p>
 <p>This is also beneficial for cases where the user wishes to byte-copy fields from the input document into an output document, for example running a program to select desired fields from a CSV document into a new CSV document.</p>
 <h2 id="deriving-the-strategy">Deriving the strategy</h2>

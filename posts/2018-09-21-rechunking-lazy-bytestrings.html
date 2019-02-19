@@ -39,113 +39,113 @@
 <p>This post will look at the chunk size Haskell’s <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library actually gives us and explore some ways we can get the required chunk size we need.</p>
 <h1 id="lazy-io">Lazy IO</h1>
 <p>Due to laziness, streaming in Haskell is straightforward. The following function lazily reads the entire contents of the input file and writes them into the output file.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">LBS</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"></a>
-<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="ot">cat ::</span> FilePath <span class="ot">-&gt;</span> FilePath <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</a>
-<a class="sourceLine" id="cb1-4" data-line-number="4">cat inputFile outputFile <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">  bs <span class="ot">&lt;-</span> LBS.readFile inputFile</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6">  LBS.writeFile outputFile bs</a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.ByteString.Lazy</span> <span class="kw">as</span> <span class="dt">LBS</span></a>
+<a class="sourceLine" id="cb1-2" title="2"></a>
+<a class="sourceLine" id="cb1-3" title="3"><span class="ot">cat ::</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</a>
+<a class="sourceLine" id="cb1-4" title="4">cat inputFile outputFile <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb1-5" title="5">  bs <span class="ot">&lt;-</span> LBS.readFile inputFile</a>
+<a class="sourceLine" id="cb1-6" title="6">  LBS.writeFile outputFile bs</a></code></pre></div>
 <p>For efficiency, the lazy bytestring is actually very similar in structure to a list of strict bytestrings. Each bytestring represents a chunk of the input file contents with a <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.Internal.html#defaultChunkSize">carefully chosen chunk size</a> to maximise performance.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="ot">defaultChunkSize ::</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2">defaultChunkSize <span class="fu">=</span> <span class="dv">32</span> <span class="fu">*</span> k <span class="fu">-</span> chunkOverhead</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">   <span class="kw">where</span> k <span class="fu">=</span> <span class="dv">1024</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (undefined<span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="ot">defaultChunkSize ::</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-2" title="2">defaultChunkSize <span class="fu">=</span> <span class="dv">32</span> <span class="fu">*</span> k <span class="fu">-</span> chunkOverhead</a>
+<a class="sourceLine" id="cb2-3" title="3">   <span class="kw">where</span> k <span class="fu">=</span> <span class="dv">1024</span></a>
+<a class="sourceLine" id="cb2-4" title="4"></a>
+<a class="sourceLine" id="cb2-5" title="5"><span class="ot">chunkOverhead ::</span> <span class="dt">Int</span></a>
+<a class="sourceLine" id="cb2-6" title="6">chunkOverhead <span class="fu">=</span> <span class="dv">2</span> <span class="fu">*</span> sizeOf (<span class="fu">undefined</span><span class="ot"> ::</span> <span class="dt">Int</span>)</a></code></pre></div>
 <p>Evidence of this behaviour is observable by using the <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:toChunks"><code>toChunks</code></a> function to convert the lazy bytestring and inspecting their size.</p>
 <p>The following command reads a file with lazy IO and counts the frequency of each chunk size:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
-<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
-<a class="sourceLine" id="cb3-3" data-line-number="3"><span class="fu">$</span> git checkout 2a9dadf9291cad68f2b05917619861eead3c31dd</a>
-<a class="sourceLine" id="cb3-4" data-line-number="4"><span class="fu">$</span> <span class="fu">./</span>project<span class="fu">.</span>sh install</a>
-<a class="sourceLine" id="cb3-5" data-line-number="5"><span class="fu">$</span> hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
-<a class="sourceLine" id="cb3-6" data-line-number="6"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">232230</span></a>
-<a class="sourceLine" id="cb3-7" data-line-number="7"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
-<a class="sourceLine" id="cb3-8" data-line-number="8"><span class="dv">2350</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb3-9" data-line-number="9"><span class="dv">32752</span>,<span class="dv">232229</span></a></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" title="1"><span class="fu">$</span> git clone git<span class="fu">@</span>github<span class="fu">.</span>com<span class="fu">:</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>simd<span class="fu">-</span>cli<span class="fu">.</span>git</a>
+<a class="sourceLine" id="cb3-2" title="2"><span class="fu">$</span> cd hw<span class="fu">-</span>simd<span class="fu">-</span>cli</a>
+<a class="sourceLine" id="cb3-3" title="3"><span class="fu">$</span> git checkout 2a9dadf9291cad68f2b05917619861eead3c31dd</a>
+<a class="sourceLine" id="cb3-4" title="4"><span class="fu">$</span> <span class="fu">./</span>project<span class="fu">.</span>sh install</a>
+<a class="sourceLine" id="cb3-5" title="5"><span class="fu">$</span> hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
+<a class="sourceLine" id="cb3-6" title="6"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">232230</span></a>
+<a class="sourceLine" id="cb3-7" title="7"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
+<a class="sourceLine" id="cb3-8" title="8"><span class="dv">2350</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb3-9" title="9"><span class="dv">32752</span>,<span class="dv">232229</span></a></code></pre></div>
 <p>Unfortunately for us, this chunk size is no good for using SIMD instructions that can use registers up to 512-bits or 64-bytes.</p>
 <p>More interestingly, even had the <code>defaultChunkSize</code> been set to a more convenient size of being a multiple of 64-bytes, a 64-byte multiple chunk size is not guaranteed, as shown in this example where we read from standard input instead:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="fu">$</span> cat <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">|</span> time hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">-</span> <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
-<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">279332</span></a>
-<a class="sourceLine" id="cb4-3" data-line-number="3"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4"><span class="dv">16</span>,<span class="dv">5780</span></a>
-<a class="sourceLine" id="cb4-5" data-line-number="5"><span class="dv">32</span>,<span class="dv">5882</span></a>
-<a class="sourceLine" id="cb4-6" data-line-number="6"><span class="dv">48</span>,<span class="dv">1793</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7"><span class="dv">64</span>,<span class="dv">739</span></a>
-<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="dv">80</span>,<span class="dv">400</span></a>
-<a class="sourceLine" id="cb4-9" data-line-number="9"><span class="dv">96</span>,<span class="dv">239</span></a>
-<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="dv">112</span>,<span class="dv">130</span></a>
-<a class="sourceLine" id="cb4-11" data-line-number="11"><span class="dv">128</span>,<span class="dv">77</span></a>
-<a class="sourceLine" id="cb4-12" data-line-number="12"><span class="dv">144</span>,<span class="dv">55</span></a>
-<a class="sourceLine" id="cb4-13" data-line-number="13"><span class="dv">160</span>,<span class="dv">50</span></a>
-<a class="sourceLine" id="cb4-14" data-line-number="14"><span class="dv">176</span>,<span class="dv">32</span></a>
-<a class="sourceLine" id="cb4-15" data-line-number="15"><span class="dv">192</span>,<span class="dv">20</span></a>
-<a class="sourceLine" id="cb4-16" data-line-number="16"><span class="dv">208</span>,<span class="dv">16</span></a>
-<a class="sourceLine" id="cb4-17" data-line-number="17"><span class="dv">224</span>,<span class="dv">12</span></a>
-<a class="sourceLine" id="cb4-18" data-line-number="18"><span class="dv">240</span>,<span class="dv">5</span></a>
-<a class="sourceLine" id="cb4-19" data-line-number="19"><span class="dv">256</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-20" data-line-number="20"><span class="dv">272</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-21" data-line-number="21"><span class="dv">288</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-22" data-line-number="22"><span class="dv">304</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-23" data-line-number="23"><span class="dv">320</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-24" data-line-number="24"><span class="dv">336</span>,<span class="dv">5</span></a>
-<a class="sourceLine" id="cb4-25" data-line-number="25"><span class="dv">368</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-26" data-line-number="26"><span class="dv">384</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-27" data-line-number="27"><span class="dv">400</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-28" data-line-number="28"><span class="dv">416</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-29" data-line-number="29"><span class="dv">432</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-30" data-line-number="30"><span class="dv">448</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-31" data-line-number="31"><span class="dv">464</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-32" data-line-number="32"><span class="dv">480</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-33" data-line-number="33"><span class="dv">496</span>,<span class="dv">4</span></a>
-<a class="sourceLine" id="cb4-34" data-line-number="34"><span class="dv">512</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-35" data-line-number="35"><span class="dv">544</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-36" data-line-number="36"><span class="dv">560</span>,<span class="dv">3</span></a>
-<a class="sourceLine" id="cb4-37" data-line-number="37"><span class="dv">592</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-38" data-line-number="38"><span class="dv">640</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-39" data-line-number="39"><span class="dv">704</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-40" data-line-number="40"><span class="dv">1088</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-41" data-line-number="41"><span class="dv">1184</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-42" data-line-number="42"><span class="dv">1280</span>,<span class="dv">1</span></a>
-<a class="sourceLine" id="cb4-43" data-line-number="43"><span class="dv">16384</span>,<span class="dv">8555</span></a>
-<a class="sourceLine" id="cb4-44" data-line-number="44"><span class="dv">16400</span>,<span class="dv">10125</span></a>
-<a class="sourceLine" id="cb4-45" data-line-number="45"><span class="dv">16416</span>,<span class="dv">23140</span></a>
-<a class="sourceLine" id="cb4-46" data-line-number="46"><span class="dv">16432</span>,<span class="dv">9269</span></a>
-<a class="sourceLine" id="cb4-47" data-line-number="47"><span class="dv">16448</span>,<span class="dv">4729</span></a>
-<a class="sourceLine" id="cb4-48" data-line-number="48"><span class="dv">16464</span>,<span class="dv">2883</span></a>
-<a class="sourceLine" id="cb4-49" data-line-number="49"><span class="dv">16480</span>,<span class="dv">1683</span></a>
-<a class="sourceLine" id="cb4-50" data-line-number="50"><span class="dv">16496</span>,<span class="dv">1005</span></a>
-<a class="sourceLine" id="cb4-51" data-line-number="51"><span class="dv">16512</span>,<span class="dv">669</span></a>
-<a class="sourceLine" id="cb4-52" data-line-number="52"><span class="dv">16528</span>,<span class="dv">433</span></a>
-<a class="sourceLine" id="cb4-53" data-line-number="53"><span class="dv">16544</span>,<span class="dv">303</span></a>
-<a class="sourceLine" id="cb4-54" data-line-number="54"><span class="dv">16560</span>,<span class="dv">202</span></a>
-<a class="sourceLine" id="cb4-55" data-line-number="55"><span class="dv">16576</span>,<span class="dv">160</span></a>
-<a class="sourceLine" id="cb4-56" data-line-number="56"><span class="dv">16592</span>,<span class="dv">95</span></a>
-<a class="sourceLine" id="cb4-57" data-line-number="57"><span class="dv">16608</span>,<span class="dv">86</span></a>
-<a class="sourceLine" id="cb4-58" data-line-number="58"><span class="dv">16624</span>,<span class="dv">60</span></a>
-<a class="sourceLine" id="cb4-59" data-line-number="59"><span class="dv">16640</span>,<span class="dv">53</span></a>
-<a class="sourceLine" id="cb4-60" data-line-number="60"><span class="dv">16656</span>,<span class="dv">36</span></a>
-<a class="sourceLine" id="cb4-61" data-line-number="61"><span class="dv">16672</span>,<span class="dv">43</span></a>
-<a class="sourceLine" id="cb4-62" data-line-number="62"><span class="dv">16688</span>,<span class="dv">29</span></a>
-<a class="sourceLine" id="cb4-63" data-line-number="63"><span class="dv">16704</span>,<span class="dv">38</span></a>
-<a class="sourceLine" id="cb4-64" data-line-number="64"><span class="dv">16720</span>,<span class="dv">23</span></a>
-<a class="sourceLine" id="cb4-65" data-line-number="65"><span class="dv">16736</span>,<span class="dv">13</span></a>
-<a class="sourceLine" id="cb4-66" data-line-number="66"><span class="dv">16752</span>,<span class="dv">13</span></a>
-<a class="sourceLine" id="cb4-67" data-line-number="67"><span class="dv">16768</span>,<span class="dv">20</span></a>
-<a class="sourceLine" id="cb4-68" data-line-number="68"><span class="dv">16784</span>,<span class="dv">15</span></a>
-<a class="sourceLine" id="cb4-69" data-line-number="69"><span class="dv">16800</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-70" data-line-number="70"><span class="dv">16816</span>,<span class="dv">14</span></a>
-<a class="sourceLine" id="cb4-71" data-line-number="71"><span class="dv">16832</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-72" data-line-number="72"><span class="dv">16848</span>,<span class="dv">8</span></a>
-<a class="sourceLine" id="cb4-73" data-line-number="73"><span class="dv">16864</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-74" data-line-number="74"><span class="dv">16880</span>,<span class="dv">7</span></a>
-<a class="sourceLine" id="cb4-75" data-line-number="75"><span class="dv">16896</span>,<span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-76" data-line-number="76"><span class="dv">16912</span>,<span class="dv">4</span></a>
-<a class="sourceLine" id="cb4-77" data-line-number="77"><span class="dv">16928</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-78" data-line-number="78"><span class="dv">16944</span>,<span class="dv">11</span></a>
-<a class="sourceLine" id="cb4-79" data-line-number="79"><span class="dv">16960</span>,<span class="dv">10</span></a>
-<a class="sourceLine" id="cb4-80" data-line-number="80"><span class="dv">16976</span>,<span class="dv">9</span></a>
-<a class="sourceLine" id="cb4-81" data-line-number="81"><span class="dv">16992</span>,<span class="dv">11</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="fu">$</span> cat <span class="fu">~/</span>7g<span class="fu">.</span>csv <span class="fu">|</span> time hw<span class="fu">-</span>simd chunks <span class="fu">-</span>i <span class="fu">-</span> <span class="fu">-</span>m chunked <span class="fu">-</span>r classic</a>
+<a class="sourceLine" id="cb4-2" title="2"><span class="dt">Total</span> chunks<span class="fu">:</span> <span class="dv">279332</span></a>
+<a class="sourceLine" id="cb4-3" title="3"><span class="dt">Chunk</span> histogram<span class="fu">:</span></a>
+<a class="sourceLine" id="cb4-4" title="4"><span class="dv">16</span>,<span class="dv">5780</span></a>
+<a class="sourceLine" id="cb4-5" title="5"><span class="dv">32</span>,<span class="dv">5882</span></a>
+<a class="sourceLine" id="cb4-6" title="6"><span class="dv">48</span>,<span class="dv">1793</span></a>
+<a class="sourceLine" id="cb4-7" title="7"><span class="dv">64</span>,<span class="dv">739</span></a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="dv">80</span>,<span class="dv">400</span></a>
+<a class="sourceLine" id="cb4-9" title="9"><span class="dv">96</span>,<span class="dv">239</span></a>
+<a class="sourceLine" id="cb4-10" title="10"><span class="dv">112</span>,<span class="dv">130</span></a>
+<a class="sourceLine" id="cb4-11" title="11"><span class="dv">128</span>,<span class="dv">77</span></a>
+<a class="sourceLine" id="cb4-12" title="12"><span class="dv">144</span>,<span class="dv">55</span></a>
+<a class="sourceLine" id="cb4-13" title="13"><span class="dv">160</span>,<span class="dv">50</span></a>
+<a class="sourceLine" id="cb4-14" title="14"><span class="dv">176</span>,<span class="dv">32</span></a>
+<a class="sourceLine" id="cb4-15" title="15"><span class="dv">192</span>,<span class="dv">20</span></a>
+<a class="sourceLine" id="cb4-16" title="16"><span class="dv">208</span>,<span class="dv">16</span></a>
+<a class="sourceLine" id="cb4-17" title="17"><span class="dv">224</span>,<span class="dv">12</span></a>
+<a class="sourceLine" id="cb4-18" title="18"><span class="dv">240</span>,<span class="dv">5</span></a>
+<a class="sourceLine" id="cb4-19" title="19"><span class="dv">256</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-20" title="20"><span class="dv">272</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-21" title="21"><span class="dv">288</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-22" title="22"><span class="dv">304</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-23" title="23"><span class="dv">320</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-24" title="24"><span class="dv">336</span>,<span class="dv">5</span></a>
+<a class="sourceLine" id="cb4-25" title="25"><span class="dv">368</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-26" title="26"><span class="dv">384</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-27" title="27"><span class="dv">400</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-28" title="28"><span class="dv">416</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-29" title="29"><span class="dv">432</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-30" title="30"><span class="dv">448</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-31" title="31"><span class="dv">464</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-32" title="32"><span class="dv">480</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-33" title="33"><span class="dv">496</span>,<span class="dv">4</span></a>
+<a class="sourceLine" id="cb4-34" title="34"><span class="dv">512</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-35" title="35"><span class="dv">544</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-36" title="36"><span class="dv">560</span>,<span class="dv">3</span></a>
+<a class="sourceLine" id="cb4-37" title="37"><span class="dv">592</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-38" title="38"><span class="dv">640</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-39" title="39"><span class="dv">704</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-40" title="40"><span class="dv">1088</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-41" title="41"><span class="dv">1184</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-42" title="42"><span class="dv">1280</span>,<span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-43" title="43"><span class="dv">16384</span>,<span class="dv">8555</span></a>
+<a class="sourceLine" id="cb4-44" title="44"><span class="dv">16400</span>,<span class="dv">10125</span></a>
+<a class="sourceLine" id="cb4-45" title="45"><span class="dv">16416</span>,<span class="dv">23140</span></a>
+<a class="sourceLine" id="cb4-46" title="46"><span class="dv">16432</span>,<span class="dv">9269</span></a>
+<a class="sourceLine" id="cb4-47" title="47"><span class="dv">16448</span>,<span class="dv">4729</span></a>
+<a class="sourceLine" id="cb4-48" title="48"><span class="dv">16464</span>,<span class="dv">2883</span></a>
+<a class="sourceLine" id="cb4-49" title="49"><span class="dv">16480</span>,<span class="dv">1683</span></a>
+<a class="sourceLine" id="cb4-50" title="50"><span class="dv">16496</span>,<span class="dv">1005</span></a>
+<a class="sourceLine" id="cb4-51" title="51"><span class="dv">16512</span>,<span class="dv">669</span></a>
+<a class="sourceLine" id="cb4-52" title="52"><span class="dv">16528</span>,<span class="dv">433</span></a>
+<a class="sourceLine" id="cb4-53" title="53"><span class="dv">16544</span>,<span class="dv">303</span></a>
+<a class="sourceLine" id="cb4-54" title="54"><span class="dv">16560</span>,<span class="dv">202</span></a>
+<a class="sourceLine" id="cb4-55" title="55"><span class="dv">16576</span>,<span class="dv">160</span></a>
+<a class="sourceLine" id="cb4-56" title="56"><span class="dv">16592</span>,<span class="dv">95</span></a>
+<a class="sourceLine" id="cb4-57" title="57"><span class="dv">16608</span>,<span class="dv">86</span></a>
+<a class="sourceLine" id="cb4-58" title="58"><span class="dv">16624</span>,<span class="dv">60</span></a>
+<a class="sourceLine" id="cb4-59" title="59"><span class="dv">16640</span>,<span class="dv">53</span></a>
+<a class="sourceLine" id="cb4-60" title="60"><span class="dv">16656</span>,<span class="dv">36</span></a>
+<a class="sourceLine" id="cb4-61" title="61"><span class="dv">16672</span>,<span class="dv">43</span></a>
+<a class="sourceLine" id="cb4-62" title="62"><span class="dv">16688</span>,<span class="dv">29</span></a>
+<a class="sourceLine" id="cb4-63" title="63"><span class="dv">16704</span>,<span class="dv">38</span></a>
+<a class="sourceLine" id="cb4-64" title="64"><span class="dv">16720</span>,<span class="dv">23</span></a>
+<a class="sourceLine" id="cb4-65" title="65"><span class="dv">16736</span>,<span class="dv">13</span></a>
+<a class="sourceLine" id="cb4-66" title="66"><span class="dv">16752</span>,<span class="dv">13</span></a>
+<a class="sourceLine" id="cb4-67" title="67"><span class="dv">16768</span>,<span class="dv">20</span></a>
+<a class="sourceLine" id="cb4-68" title="68"><span class="dv">16784</span>,<span class="dv">15</span></a>
+<a class="sourceLine" id="cb4-69" title="69"><span class="dv">16800</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-70" title="70"><span class="dv">16816</span>,<span class="dv">14</span></a>
+<a class="sourceLine" id="cb4-71" title="71"><span class="dv">16832</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-72" title="72"><span class="dv">16848</span>,<span class="dv">8</span></a>
+<a class="sourceLine" id="cb4-73" title="73"><span class="dv">16864</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-74" title="74"><span class="dv">16880</span>,<span class="dv">7</span></a>
+<a class="sourceLine" id="cb4-75" title="75"><span class="dv">16896</span>,<span class="dv">2</span></a>
+<a class="sourceLine" id="cb4-76" title="76"><span class="dv">16912</span>,<span class="dv">4</span></a>
+<a class="sourceLine" id="cb4-77" title="77"><span class="dv">16928</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-78" title="78"><span class="dv">16944</span>,<span class="dv">11</span></a>
+<a class="sourceLine" id="cb4-79" title="79"><span class="dv">16960</span>,<span class="dv">10</span></a>
+<a class="sourceLine" id="cb4-80" title="80"><span class="dv">16976</span>,<span class="dv">9</span></a>
+<a class="sourceLine" id="cb4-81" title="81"><span class="dv">16992</span>,<span class="dv">11</span></a></code></pre></div>
 <h1 id="rechunking-resegmenting">Rechunking &amp; resegmenting</h1>
 <p>One strategy we could use to ensure our bytestrings are always chunked to 64-byte multiples is to <a href="http://hackage.haskell.org/package/hw-prim-0.6.2.15/docs/HaskellWorks-Data-ByteString.html#v:rechunk"><code>rechunk</code></a> the bytestrings into equal chunk sizes like the following:</p>
 <pre class="text"><code>|---------------a---------------|---------b----------|-c-|-------------d---------------|
@@ -169,58 +169,58 @@
 resegment:        |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|v|
 resegmentPadded:  |--------------w--------------|=k==|------x-------|=o==|=p==|-----------y------------|=z==|</code></pre>
 <p>Some benchmarking will give us some idea of how much rechunking and resegmenting costs us:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" data-line-number="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2">$ <span class="bu">cd</span> hw-simd-cli</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3">$ <span class="ex">./project.sh</span> install</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
-<a class="sourceLine" id="cb9-8" data-line-number="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
-<a class="sourceLine" id="cb9-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb9-1" title="1">$ <span class="fu">git</span> clone git@github.com:haskell-works/hw-simd-cli.git</a>
+<a class="sourceLine" id="cb9-2" title="2">$ <span class="bu">cd</span> hw-simd-cli</a>
+<a class="sourceLine" id="cb9-3" title="3">$ <span class="ex">./project.sh</span> install</a>
+<a class="sourceLine" id="cb9-4" title="4">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-5" title="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb9-6" title="6">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m rechunk -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-7" title="7"><span class="ex">7.08GiB</span> 0:00:22 [ 317MiB/s]</a>
+<a class="sourceLine" id="cb9-8" title="8">$ <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null</a>
+<a class="sourceLine" id="cb9-9" title="9"><span class="ex">7.08GiB</span> 0:00:06 [1.15GiB/s]</a></code></pre></div>
 <p>The results show the cost of using small chunks is drastic compared to the much more modest overhead of resegmenting.</p>
 <h1 id="pre-chunked-reading">Pre-chunked reading</h1>
 <p>An alternative to resegmenting the lazy bytestring is to read the bytes with the desired segment size in the first place.</p>
 <p>The <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/Data-ByteString-Lazy.html#v:hGetContents"><code>hGetContents</code></a> function from the <a href="http://hackage.haskell.org/package/bytestring"><code>bytestring</code></a> library is implemented in terms of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Lazy.html#hGetContentsN"><code>hGetContentsN</code></a> like this:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
-<a class="sourceLine" id="cb10-2" data-line-number="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
-<a class="sourceLine" id="cb10-3" data-line-number="3">  <span class="kw">where</span></a>
-<a class="sourceLine" id="cb10-4" data-line-number="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb10-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb10-6" data-line-number="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb10-7" data-line-number="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
-<a class="sourceLine" id="cb10-8" data-line-number="8">        <span class="kw">if</span> S.null c</a>
-<a class="sourceLine" id="cb10-9" data-line-number="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">Empty</span></a>
-<a class="sourceLine" id="cb10-10" data-line-number="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
-<a class="sourceLine" id="cb10-11" data-line-number="11">                  return (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" title="1"><span class="ot">hGetContentsN ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">ByteString</span></a>
+<a class="sourceLine" id="cb10-2" title="2">hGetContentsN k h <span class="fu">=</span> lazyRead <span class="co">-- TODO close on exceptions</span></a>
+<a class="sourceLine" id="cb10-3" title="3">  <span class="kw">where</span></a>
+<a class="sourceLine" id="cb10-4" title="4">    lazyRead <span class="fu">=</span> unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb10-5" title="5"></a>
+<a class="sourceLine" id="cb10-6" title="6">    loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb10-7" title="7">        c <span class="ot">&lt;-</span> S.hGetSome h k <span class="co">-- only blocks if there is no data available</span></a>
+<a class="sourceLine" id="cb10-8" title="8">        <span class="kw">if</span> S.null c</a>
+<a class="sourceLine" id="cb10-9" title="9">          <span class="kw">then</span> hClose h <span class="fu">&gt;&gt;</span> <span class="fu">return</span> <span class="dt">Empty</span></a>
+<a class="sourceLine" id="cb10-10" title="10">          <span class="kw">else</span> <span class="kw">do</span> cs <span class="ot">&lt;-</span> lazyRead</a>
+<a class="sourceLine" id="cb10-11" title="11">                  <span class="fu">return</span> (<span class="dt">Chunk</span> c cs)</a></code></pre></div>
 <p><a href="http://hackage.haskell.org/package/hw-prim-0.6.2.17/docs/HaskellWorks-Data-ByteString-Lazy.html#v:hGetContentsChunkedBy"><code>hGetContentsChunkedBy</code></a>, a different version of the function which guarantees that every chunk is the same size (except the last) can be implemented by using <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/System-IO.html#v:hGetBuf"><code>hGetBuf</code></a> and <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.Internal.html#createAndTrim"><code>createAndTrim</code></a> instead of <a href="http://hackage.haskell.org/package/bytestring-0.10.8.2/docs/src/Data.ByteString.html#hGetSome"><code>hGetSome</code></a> and keeping everything else the same:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
-<a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
-<a class="sourceLine" id="cb11-4" data-line-number="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
-<a class="sourceLine" id="cb11-5" data-line-number="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
-<a class="sourceLine" id="cb11-6" data-line-number="6">            <span class="kw">if</span> BS.null c</a>
-<a class="sourceLine" id="cb11-7" data-line-number="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> return <span class="dt">LBS.Empty</span></a>
-<a class="sourceLine" id="cb11-8" data-line-number="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" title="1"><span class="ot">hGetContentsChunkedBy ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span><span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">LBS.ByteString</span></a>
+<a class="sourceLine" id="cb11-2" title="2">hGetContentsChunkedBy k h <span class="fu">=</span> lazyRead</a>
+<a class="sourceLine" id="cb11-3" title="3">  <span class="kw">where</span> lazyRead <span class="fu">=</span> <span class="dt">IO</span><span class="fu">.</span>unsafeInterleaveIO loop</a>
+<a class="sourceLine" id="cb11-4" title="4">        loop <span class="fu">=</span> <span class="kw">do</span></a>
+<a class="sourceLine" id="cb11-5" title="5">            c <span class="ot">&lt;-</span> BS.createAndTrim k <span class="fu">$</span> \p <span class="ot">-&gt;</span> <span class="dt">IO</span><span class="fu">.</span>hGetBuf h p k</a>
+<a class="sourceLine" id="cb11-6" title="6">            <span class="kw">if</span> BS.null c</a>
+<a class="sourceLine" id="cb11-7" title="7">              <span class="kw">then</span> <span class="dt">IO</span><span class="fu">.</span>hClose h <span class="fu">&gt;&gt;</span> <span class="fu">return</span> <span class="dt">LBS.Empty</span></a>
+<a class="sourceLine" id="cb11-8" title="8">              <span class="kw">else</span> <span class="dt">LBS.Chunk</span> c <span class="fu">&lt;$&gt;</span> lazyRead</a></code></pre></div>
 <p>Benchmarking this shows the performance is comparable to resegmenting.</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb12-1" data-line-number="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-2" data-line-number="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb12-3" data-line-number="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
-<a class="sourceLine" id="cb12-4" data-line-number="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
-<a class="sourceLine" id="cb12-5" data-line-number="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb12-6" data-line-number="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
-<a class="sourceLine" id="cb12-7" data-line-number="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-8" data-line-number="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
-<a class="sourceLine" id="cb12-9" data-line-number="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb12-10" data-line-number="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
-<a class="sourceLine" id="cb12-11" data-line-number="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
-<a class="sourceLine" id="cb12-12" data-line-number="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb12-13" data-line-number="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
-<a class="sourceLine" id="cb12-14" data-line-number="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
-<a class="sourceLine" id="cb12-15" data-line-number="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
-<a class="sourceLine" id="cb12-16" data-line-number="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
-<a class="sourceLine" id="cb12-17" data-line-number="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
-<a class="sourceLine" id="cb12-18" data-line-number="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb12-1" title="1">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m default <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-2" title="2"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-3" title="3"><span class="ex">7.08GiB</span> 0:00:05 [1.26GiB/s]</a>
+<a class="sourceLine" id="cb12-4" title="4"><span class="ex">7.08GiB</span> 0:00:05 [1.29GiB/s]</a>
+<a class="sourceLine" id="cb12-5" title="5"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-6" title="6"><span class="ex">7.08GiB</span> 0:00:05 [1.27GiB/s]</a>
+<a class="sourceLine" id="cb12-7" title="7">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m prechunk -c 32704 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-8" title="8"><span class="ex">7.08GiB</span> 0:00:06 [1.12GiB/s]</a>
+<a class="sourceLine" id="cb12-9" title="9"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-10" title="10"><span class="ex">7.08GiB</span> 0:00:06 [1.10GiB/s]</a>
+<a class="sourceLine" id="cb12-11" title="11"><span class="ex">7.08GiB</span> 0:00:06 [1.13GiB/s]</a>
+<a class="sourceLine" id="cb12-12" title="12"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-13" title="13">$ <span class="kw">for</span> <span class="ex">x</span> in <span class="dt">{1..5}</span><span class="kw">;</span> <span class="kw">do</span> <span class="fu">cat</span> ~/7g.csv <span class="kw">|</span> <span class="ex">pv</span> -t -e -b -a <span class="kw">|</span> <span class="ex">hw-simd</span> cat -i - -o - -m resegment -c 64 <span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="kw">done</span></a>
+<a class="sourceLine" id="cb12-14" title="14"><span class="ex">7.08GiB</span> 0:00:06 [1.14GiB/s]</a>
+<a class="sourceLine" id="cb12-15" title="15"><span class="ex">7.08GiB</span> 0:00:06 [1.16GiB/s]</a>
+<a class="sourceLine" id="cb12-16" title="16"><span class="ex">7.08GiB</span> 0:00:06 [1.06GiB/s]</a>
+<a class="sourceLine" id="cb12-17" title="17"><span class="ex">7.08GiB</span> 0:00:05 [1.18GiB/s]</a>
+<a class="sourceLine" id="cb12-18" title="18"><span class="ex">7.08GiB</span> 0:00:05 [1.19GiB/s]</a></code></pre></div>
 <p>This is likely because the chunks returned by <code>hGetContents</code> were already large enough that the extra effort to resegment the lazy bytestring is negligible.</p>
 <h1 id="closing-remarks">Closing Remarks</h1>
 <p>This post looked at how we can resegment our lazy bytestring to make the chunk sizes compatible with SIMD instructions at a reasonable cost.</p>

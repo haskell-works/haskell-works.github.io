@@ -40,22 +40,22 @@
 <h1 id="pop-count">Pop Count</h1>
 <p>The <code>popcnt</code> operation is quite straight-forward. It takes an integer as its input argument, counts the number of 1-bits and produces an integer containing the count.</p>
 <p>In the following example, I count the number of 1-bits in my bit-string and find there are 5:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb1-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb1-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5">λ<span class="fu">&gt;</span> popCount1 bs</a>
-<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="dv">5</span></a></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb1-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb1-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
+<a class="sourceLine" id="cb1-5" title="5">λ<span class="fu">&gt;</span> popCount1 bs</a>
+<a class="sourceLine" id="cb1-6" title="6"><span class="dv">5</span></a></code></pre></div>
 <h1 id="trailing-zeros-count">Trailing Zeros Count</h1>
 <p>The <code>tzcnt</code> operation is also quite straight-forward. It counts the number of “trailing zeros” in the bit-string.</p>
 <p>Unfortunately, because we are on the topic of succinct data-structures, all our bits are expressed in Little-Endian, so visually we are looking at the leading zeros.</p>
 <p>In the following example, I count the number of trailing zeros in my bit-string and find there are 3 (as indicated by the <code>***</code> annotation):</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span>             ***</a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5">λ<span class="fu">&gt;</span> countTrailingZeros bs</a>
-<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="dv">3</span></a></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb2-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span>             ***</a>
+<a class="sourceLine" id="cb2-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word8</span></a>
+<a class="sourceLine" id="cb2-5" title="5">λ<span class="fu">&gt;</span> countTrailingZeros bs</a>
+<a class="sourceLine" id="cb2-6" title="6"><span class="dv">3</span></a></code></pre></div>
 <h1 id="parallel-extract">Parallel Extract</h1>
 <p>The <code>pext</code> or “parallel extract” operation , is an operation that takes a bit-mask and extracts the bits from the <code>source</code> word corresponding to 1-bits in the bit-mask and packs them into least-significant side of the word.</p>
 <pre class="text"><code>* All words in Little-Endian *
@@ -73,14 +73,14 @@ bits     10  11  10  01
        │││││││┌───────┘
 result 1011100100000000</code></pre>
 <p>In the following example, I extract the high nibble of each byte in my <code>Word32</code> by using a mask where all the high-nibble bits are set to <code>1</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb4-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pext</span></a>
-<a class="sourceLine" id="cb4-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101 11001010 00001001 01011000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb4-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb4-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pext source mask</a>
-<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb4-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb4-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb4-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pext</span></a>
+<a class="sourceLine" id="cb4-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01110101 11001010 00001001 01011000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb4-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb4-7" title="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pext source mask</a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span></a></code></pre></div>
 <h1 id="parallel-deposit">Parallel Deposit</h1>
 <p>The <code>pdep</code> or “parallel deposit” operation, is an operation that takes a bit-mask and deposits the least-significant n-bits from the <code>source</code> word where <code>n</code> is the number of bits in the bit-mask and deposits them at the positions marked by 1-bits in the bit-mask.</p>
 <pre class="text"><code>* All words in Little-Endian *
@@ -98,46 +98,46 @@ source 1011100100000000
 bits     10  11  10  01
 bits   0010001100100001</code></pre>
 <p>In the following example, I deposit the first eight bits in my bits-string into the high nibble of each byte in my <code>Word32</code>, again by using a mask where all the high-nibble bits are set to <code>1</code>:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb6-2" data-line-number="2"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb6-3" data-line-number="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
-<a class="sourceLine" id="cb6-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
-<a class="sourceLine" id="cb6-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb6-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
-<a class="sourceLine" id="cb6-7" data-line-number="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep source mask</a>
-<a class="sourceLine" id="cb6-8" data-line-number="8"><span class="st">&quot;00000101 00001010 00001001 00001000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb6-2" title="2"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb6-3" title="3">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Word</span></a>
+<a class="sourceLine" id="cb6-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
+<a class="sourceLine" id="cb6-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> source <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01011010 10011000 00000000 00000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb6-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> mask   <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00001111 00001111 00001111 00001111&quot;</span><span class="ot"> ::</span> <span class="dt">Word32</span></a>
+<a class="sourceLine" id="cb6-7" title="7">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep source mask</a>
+<a class="sourceLine" id="cb6-8" title="8"><span class="st">&quot;00000101 00001010 00001001 00001000&quot;</span></a></code></pre></div>
 <h1 id="availability-on-ghc">Availability on GHC</h1>
 <p>In Haskell, the <code>popCount</code> operation is available via the <a href="http://hackage.haskell.org/package/base-4.11.1.0/docs/Data-Bits.html#v:popCount"><code>popCount</code></a> function in <code>Data.Bits</code> module of the <a href="http://hackage.haskell.org/package/base">base</a> package.</p>
 <p>On most modern x86 systems, the <code>popCount</code> operation is available on 64-bit integers in the form of the <a href="https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=765,767,802,4093&amp;text=popcnt"><code>POPCNT</code></a> CPU instruction, so it is very fast.</p>
 <p>It is also available to C programs by way of the <code>_popcnt64</code> CPU intrinsic, but what about Haskell?</p>
 <p>To confirm that the function does in fact compile down to an instruction we first check the <a href="https://github.com/ghc/ghc/blob/8df24474d0194d28b8273c1539af05793156e23f/libraries/base/Data/Bits.hs#L508">definition</a> here.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">popCount (<span class="dt">W</span><span class="fu">#</span> x<span class="fu">#</span>)         <span class="fu">=</span> <span class="dt">I</span><span class="fu">#</span> (word2Int<span class="fu">#</span> (popCnt<span class="fu">#</span> x<span class="fu">#</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" title="1">popCount (<span class="dt">W</span><span class="fu">#</span> x<span class="fu">#</span>)         <span class="fu">=</span> <span class="dt">I</span><span class="fu">#</span> (word2Int<span class="fu">#</span> (popCnt<span class="fu">#</span> x<span class="fu">#</span>))</a></code></pre></div>
 <p>and notice the use of the primop <code>popCnt#</code>.</p>
 <p>Digging further into the <a href="https://github.com/ghc/ghc/blob/ab55b4ddb717dab13d8b4900024ccbc8e9280c5c/compiler/nativeGen/X86/CodeGen.hs#L1861">GHC source code</a>:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">    sse4_2 <span class="ot">&lt;-</span> sse4_2Enabled</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">    <span class="kw">let</span> platform <span class="fu">=</span> targetPlatform dflags</a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">    <span class="kw">if</span> sse4_2</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4">      <span class="kw">then</span></a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">                      <span class="fu">....</span></a>
-<a class="sourceLine" id="cb8-6" data-line-number="6">          unitOL (<span class="dt">MOVZxL</span> <span class="dt">II8</span> (<span class="dt">OpReg</span> src_r) (<span class="dt">OpReg</span> src_r)) <span class="ot">`appOL`</span></a>
-<a class="sourceLine" id="cb8-7" data-line-number="7">          unitOL (<span class="dt">POPCNT</span> <span class="dt">II16</span> (<span class="dt">OpReg</span> src_r) dst_r)</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" title="1">    sse4_2 <span class="ot">&lt;-</span> sse4_2Enabled</a>
+<a class="sourceLine" id="cb8-2" title="2">    <span class="kw">let</span> platform <span class="fu">=</span> targetPlatform dflags</a>
+<a class="sourceLine" id="cb8-3" title="3">    <span class="kw">if</span> sse4_2</a>
+<a class="sourceLine" id="cb8-4" title="4">      <span class="kw">then</span></a>
+<a class="sourceLine" id="cb8-5" title="5">                      <span class="fu">....</span></a>
+<a class="sourceLine" id="cb8-6" title="6">          unitOL (<span class="dt">MOVZxL</span> <span class="dt">II8</span> (<span class="dt">OpReg</span> src_r) (<span class="dt">OpReg</span> src_r)) <span class="ot">`appOL`</span></a>
+<a class="sourceLine" id="cb8-7" title="7">          unitOL (<span class="dt">POPCNT</span> <span class="dt">II16</span> (<span class="dt">OpReg</span> src_r) dst_r)</a></code></pre></div>
 <p>We find that this primop generates the <code>POPCNT</code> instruction provided that <code>sse4_2Enabled</code> yields <code>True</code>, which according to the <a href="https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/using.html#platform-specific-flags">GHC User Guide</a> can be switched on with the <code>-msse4.2</code> <code>ghc</code> flag since GHC 7.4.1 on x86 CPU architectures.</p>
 <p>A similar search can be done for the <code>tzcnt</code> operation, but <a href="https://github.com/ghc/ghc/blob/44ba66527ae207ce2dd64eb2bce14656d474f6d1/compiler/nativeGen/X86/CodeGen.hs#L1990">unfortunately the equivalent primop expands to a whole bunch of instructions</a>:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1">([ <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         (<span class="dt">OpReg</span> tmp_r)</a>
-<a class="sourceLine" id="cb9-2" data-line-number="2"> , <span class="dt">OR</span>       <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         (<span class="dt">OpReg</span> tmp_r)</a>
-<a class="sourceLine" id="cb9-3" data-line-number="3"> , <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">64</span>)) (<span class="dt">OpReg</span> dst_r)</a>
-<a class="sourceLine" id="cb9-4" data-line-number="4"> , <span class="dt">JXX</span> <span class="dt">EQQ</span>    lbl2</a>
-<a class="sourceLine" id="cb9-5" data-line-number="5"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl1</a>
-<a class="sourceLine" id="cb9-6" data-line-number="6"> </a>
-<a class="sourceLine" id="cb9-7" data-line-number="7"> , <span class="dt">NEWBLOCK</span>   lbl1</a>
-<a class="sourceLine" id="cb9-8" data-line-number="8"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         dst_r</a>
-<a class="sourceLine" id="cb9-9" data-line-number="9"> , <span class="dt">ADD</span>     <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">32</span>)) (<span class="dt">OpReg</span> dst_r)</a>
-<a class="sourceLine" id="cb9-10" data-line-number="10"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         tmp_r</a>
-<a class="sourceLine" id="cb9-11" data-line-number="11"> , <span class="dt">CMOV</span> <span class="dt">NE</span> <span class="dt">II32</span> (<span class="dt">OpReg</span> tmp_r)       dst_r</a>
-<a class="sourceLine" id="cb9-12" data-line-number="12"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl2</a>
-<a class="sourceLine" id="cb9-13" data-line-number="13"> </a>
-<a class="sourceLine" id="cb9-14" data-line-number="14"> , <span class="dt">NEWBLOCK</span>   lbl2</a>
-<a class="sourceLine" id="cb9-15" data-line-number="15">])</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" title="1">([ <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         (<span class="dt">OpReg</span> tmp_r)</a>
+<a class="sourceLine" id="cb9-2" title="2"> , <span class="dt">OR</span>       <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         (<span class="dt">OpReg</span> tmp_r)</a>
+<a class="sourceLine" id="cb9-3" title="3"> , <span class="dt">MOV</span>      <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">64</span>)) (<span class="dt">OpReg</span> dst_r)</a>
+<a class="sourceLine" id="cb9-4" title="4"> , <span class="dt">JXX</span> <span class="dt">EQQ</span>    lbl2</a>
+<a class="sourceLine" id="cb9-5" title="5"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl1</a>
+<a class="sourceLine" id="cb9-6" title="6"> </a>
+<a class="sourceLine" id="cb9-7" title="7"> , <span class="dt">NEWBLOCK</span>   lbl1</a>
+<a class="sourceLine" id="cb9-8" title="8"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rhi)         dst_r</a>
+<a class="sourceLine" id="cb9-9" title="9"> , <span class="dt">ADD</span>     <span class="dt">II32</span> (<span class="dt">OpImm</span> (<span class="dt">ImmInt</span> <span class="dv">32</span>)) (<span class="dt">OpReg</span> dst_r)</a>
+<a class="sourceLine" id="cb9-10" title="10"> , <span class="dt">BSF</span>     <span class="dt">II32</span> (<span class="dt">OpReg</span> rlo)         tmp_r</a>
+<a class="sourceLine" id="cb9-11" title="11"> , <span class="dt">CMOV</span> <span class="dt">NE</span> <span class="dt">II32</span> (<span class="dt">OpReg</span> tmp_r)       dst_r</a>
+<a class="sourceLine" id="cb9-12" title="12"> , <span class="dt">JXX</span> <span class="dt">ALWAYS</span> lbl2</a>
+<a class="sourceLine" id="cb9-13" title="13"> </a>
+<a class="sourceLine" id="cb9-14" title="14"> , <span class="dt">NEWBLOCK</span>   lbl2</a>
+<a class="sourceLine" id="cb9-15" title="15">])</a></code></pre></div>
 <p>The operation is emulated with <code>BSF</code> or Bit-Scan-Forward, which does something similar, but only works on 32-bit integers.</p>
 <p>Unfortunately for me, I needed optimised <code>pdep</code> and <code>pext</code> primops from <code>ghc</code> for my succinct data-structure libraries, but sadly they weren’t available at the time I sought them, which was about this time last year.</p>
 <p>I created a <a href="https://ghc.haskell.org/trac/ghc/ticket/14206">trac issue</a>, and one thing led to another and I ended up <a href="https://phabricator.haskell.org/D4236">implementing these primops</a> in <code>ghc</code> over the space of several months with the kind help of <a href="https://twitter.com/bgamari">Ben Gamari</a> and <a href="https://twitter.com/angerman_io">Moritz Angermann</a>.</p>
@@ -198,19 +198,19 @@ exits:    00000000000000010001000000010000001</code></pre>
 <p>We need to build <code>odds</code> which has all the odd 1-bits (ie. the opening quotes) and <code>leaves</code> which has all the even 1-bits (ie. the closing quotes).</p>
 <p>We must somehow be able to produce the bit-strings <code>odds</code> and <code>evens</code> from the bit-string <code>quotes</code> very efficiently.</p>
 <p>This is actually very easy with a single application of the <code>pdep</code> operation for each bit-string we produce:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" data-line-number="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
-<a class="sourceLine" id="cb13-2" data-line-number="2"></a>
-<a class="sourceLine" id="cb13-3" data-line-number="3"><span class="fu">$</span> stack repl</a>
-<a class="sourceLine" id="cb13-4" data-line-number="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
-<a class="sourceLine" id="cb13-5" data-line-number="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs    <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00000000000001011001010000010100001000000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-6" data-line-number="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> odds  <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;10101010101010101010101010101010101010101010&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-7" data-line-number="7">λ<span class="fu">&gt;</span> <span class="kw">let</span> evens <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01010101010101010101010101010101010101010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
-<a class="sourceLine" id="cb13-8" data-line-number="8">λ<span class="fu">&gt;</span> bitShow bs</a>
-<a class="sourceLine" id="cb13-9" data-line-number="9"><span class="st">&quot;00000000 00000101 10010100 00010100 00100000 00000000 00000000 00000000&quot;</span></a>
-<a class="sourceLine" id="cb13-10" data-line-number="10">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep odds bs</a>
-<a class="sourceLine" id="cb13-11" data-line-number="11"><span class="st">&quot;00000000 00000100 10000100 00000100 00000000 00000000 00000000 00000000&quot;</span></a>
-<a class="sourceLine" id="cb13-12" data-line-number="12">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep evens bs</a>
-<a class="sourceLine" id="cb13-13" data-line-number="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" title="1"><span class="fu">~/</span>wrk<span class="fu">/</span>haskell<span class="fu">-</span>works<span class="fu">/</span>hw<span class="fu">-</span>rankselect<span class="fu">-</span>base <span class="fu">$</span></a>
+<a class="sourceLine" id="cb13-2" title="2"></a>
+<a class="sourceLine" id="cb13-3" title="3"><span class="fu">$</span> stack repl</a>
+<a class="sourceLine" id="cb13-4" title="4">λ<span class="fu">&gt;</span> <span class="kw">import</span> <span class="dt">Data.Bits.Pdep</span></a>
+<a class="sourceLine" id="cb13-5" title="5">λ<span class="fu">&gt;</span> <span class="kw">let</span> bs    <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;00000000000001011001010000010100001000000000&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-6" title="6">λ<span class="fu">&gt;</span> <span class="kw">let</span> odds  <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;10101010101010101010101010101010101010101010&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-7" title="7">λ<span class="fu">&gt;</span> <span class="kw">let</span> evens <span class="fu">=</span> fromJust <span class="fu">$</span> bitRead <span class="st">&quot;01010101010101010101010101010101010101010101&quot;</span><span class="ot"> ::</span> <span class="dt">Word64</span></a>
+<a class="sourceLine" id="cb13-8" title="8">λ<span class="fu">&gt;</span> bitShow bs</a>
+<a class="sourceLine" id="cb13-9" title="9"><span class="st">&quot;00000000 00000101 10010100 00010100 00100000 00000000 00000000 00000000&quot;</span></a>
+<a class="sourceLine" id="cb13-10" title="10">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep odds bs</a>
+<a class="sourceLine" id="cb13-11" title="11"><span class="st">&quot;00000000 00000100 10000100 00000100 00000000 00000000 00000000 00000000&quot;</span></a>
+<a class="sourceLine" id="cb13-12" title="12">λ<span class="fu">&gt;</span> bitShow <span class="fu">$</span> pdep evens bs</a>
+<a class="sourceLine" id="cb13-13" title="13"><span class="st">&quot;00000000 00000001 00010000 00010000 00100000 00000000 00000000 00000000&quot;</span></a></code></pre></div>
 <p>I will leave it to the reader to work out why this works. 😉</p>
 <h1 id="next-steps">Next steps</h1>
 <p>We now have very fast rank-select operations for short bit-vectors of 64-bits, which is sufficient for CSV streaming because it allows us to process 64 bytes of CSV text at a time.</p>
