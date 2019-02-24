@@ -201,7 +201,7 @@ wc -l                 0m5.458s</code></pre>
 <h1 id="closing-remarks">Closing remarks</h1>
 <p>The benchmarks make a compelling case for using SIMD instructions where ever possible and broadword where the target CPU architecture does not support the SIMD instructions we need.</p>
 <p>Unfortunately, GHC does not have native support for the SIMD instructions we need.</p>
-<p>In a future post I’ll look at using these SIMD from GHC using Foreign Function Interface (FFI) and addressing some of the challenges of using SIMD with Haskell’s lazy IO.</p>
+<p>In a future post I’ll look at using these SIMD from GHC using Foreign Function Interface (FFI) and addressing some of the <a href="../posts/2018-09-21-rechunking-lazy-bytestrings.html">challenges of using SIMD with Haskell’s lazy IO</a>.</p>
   </section>
 </article>
 
