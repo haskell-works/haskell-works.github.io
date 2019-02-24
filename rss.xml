@@ -967,8 +967,9 @@ masked-newlines:  00000000000010000000000000000000000</code></pre>
 <pre class="text"><code>quotes:   0000000000000(0)(00)0(00000)0(0000)
 enters:   00000000000001001000010000000100000
 exits:    00000000000000010001000000010000001</code></pre>
-<p>Without this, all things fall apart.</p>
-<p>But do not fear. Next week, I will <a href="../posts/2018-08-22-pdep-and-pext-bit-manipulation-functions.html#splitting-a-bit-string-to-odd-and-even-bits">explain how to pull this off</a>. Stay tuned!</p>]]></description>
+<p>Futhermore, we will need a way to efficient add two bit-strings together.</p>
+<p>Without these things, all things fall apart.</p>
+<p>But do not fear. There will be a follow up post on <a href="../posts/2018-08-22-pdep-and-pext-bit-manipulation-functions.html#splitting-a-bit-string-to-odd-and-even-bits">how to split bit-vectors into odd and even bits</a> and <a href="../posts/2019-02-22-adding-bit-vectors-branchless-comparisons.html">how to add bit-vectors together</a>. Stay tuned!</p>]]></description>
     <pubDate>Wed, 15 Aug 2018 00:00:00 UT</pubDate>
     <guid>https://haskell-works.github.io/posts/2018-08-15-data-parallel-rfc-compliant-csv-parsing.html</guid>
     <dc:creator>Haskell Works</dc:creator>
